@@ -1,0 +1,10 @@
+.vs/
+.vscode/
+**/bin/
+**/obj/
+TestResults/
+*.user
+*.suo
+*.pfx
+*.env
+appsettings.Local.json

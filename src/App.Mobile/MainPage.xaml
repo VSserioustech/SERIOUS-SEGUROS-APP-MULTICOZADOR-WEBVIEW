@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="App.Mobile.MainPage"
+             BackgroundColor="#F6F8FB"
+             SafeAreaEdges="Container">
+
+    <ContentPage.Resources>
+        <Style x:Key="ToolbarButton" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="TextColor" Value="White" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="HeightRequest" Value="44" />
+            <Setter Property="WidthRequest" Value="48" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="56,*">
+        <Grid Grid.Row="0"
+              Padding="8,6"
+              ColumnDefinitions="Auto,Auto,*,Auto"
+              BackgroundColor="#0F172A">
+            <Button Grid.Column="0"
+                    Text="‹"
+                    Style="{StaticResource ToolbarButton}"
+                    SemanticProperties.Description="Volver"
+                    Clicked="OnBackClicked" />
+            <Button Grid.Column="1"
+                    Text="⌂"
+                    Style="{StaticResource ToolbarButton}"
+                    SemanticProperties.Description="Ir al inicio"
+                    Clicked="OnHomeClicked" />
+            <VerticalStackLayout Grid.Column="2"
+                                 Padding="10,0"
+                                 VerticalOptions="Center"
+                                 Spacing="0">
+                <Label Text="Serious Seguros"
+                       TextColor="White"
+                       FontAttributes="Bold"
+                       FontSize="15"
+                       LineBreakMode="TailTruncation" />
+                <Label x:Name="environmentLabel"
+                       Text="Portal seguro"
+                       TextColor="#CBD5E1"
+                       FontSize="11" />
+            </VerticalStackLayout>
+            <Button Grid.Column="3"
+                    Text="↻"
+                    Style="{StaticResource ToolbarButton}"
+                    SemanticProperties.Description="Recargar"
+                    Clicked="OnReloadClicked" />
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <WebView x:Name="portalWebView"
+                     Navigating="OnPortalNavigating"
+                     Navigated="OnPortalNavigated" />
+
+            <Grid x:Name="loadingOverlay"
+                  BackgroundColor="#EFFFFFFF"
+                  InputTransparent="False">
+                <VerticalStackLayout HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     Spacing="12">
+                    <ActivityIndicator IsRunning="True"
+                                       Color="#175CD3"
+                                       HeightRequest="36"
+                                       WidthRequest="36" />
+                    <Label Text="Conectando con el portal…"
+                           TextColor="#334155"
+                           FontSize="14" />
+                </VerticalStackLayout>
+            </Grid>
+
+            <Grid x:Name="errorOverlay"
+                  IsVisible="False"
+                  Padding="28"
+                  BackgroundColor="#F6F8FB">
+                <VerticalStackLayout HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     MaximumWidthRequest="420"
+                                     Spacing="14">
+                    <Label Text="No pudimos abrir el portal"
+                           HorizontalTextAlignment="Center"
+                           TextColor="#0F172A"
+                           FontAttributes="Bold"
+                           FontSize="22" />
+                    <Label x:Name="errorMessageLabel"
+                           Text="Revisa tu conexión e inténtalo nuevamente."
+                           HorizontalTextAlignment="Center"
+                           TextColor="#475569"
+                           FontSize="14" />
+                    <Button Text="Reintentar"
+                            Margin="0,8,0,0"
+                            Padding="22,12"
+                            BackgroundColor="#175CD3"
+                            TextColor="White"
+                            CornerRadius="8"
+                            Clicked="OnRetryClicked" />
+                </VerticalStackLayout>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>
