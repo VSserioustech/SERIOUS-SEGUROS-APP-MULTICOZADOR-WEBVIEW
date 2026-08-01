@@ -6,37 +6,59 @@
              SafeAreaEdges="Container">
 
     <ContentPage.Resources>
-        <Style x:Key="ToolbarButton" TargetType="Button">
+        <Style x:Key="ToolbarIconButton" TargetType="ImageButton">
             <Setter Property="BackgroundColor" Value="Transparent" />
-            <Setter Property="TextColor" Value="White" />
-            <Setter Property="FontSize" Value="18" />
             <Setter Property="HeightRequest" Value="44" />
-            <Setter Property="WidthRequest" Value="48" />
+            <Setter Property="WidthRequest" Value="44" />
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Aspect" Value="AspectFit" />
         </Style>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="56,*">
-        <Grid Grid.Row="0"
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition x:Name="toolbarRow" Height="56" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid x:Name="toolbarGrid"
+              Grid.Row="0"
               Padding="8,6"
-              ColumnDefinitions="Auto,Auto,*,Auto"
+              ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto"
               BackgroundColor="#0F172A">
-            <Button Grid.Column="0"
-                    Text="‹"
-                    Style="{StaticResource ToolbarButton}"
-                    SemanticProperties.Description="Volver"
-                    Clicked="OnBackClicked" />
-            <Button Grid.Column="1"
-                    Text="⌂"
-                    Style="{StaticResource ToolbarButton}"
-                    SemanticProperties.Description="Ir al inicio"
-                    Clicked="OnHomeClicked" />
-            <VerticalStackLayout Grid.Column="2"
-                                 Padding="10,0"
+            <ImageButton x:Name="backButton"
+                         Grid.Column="0"
+                         Source="ic_nav_back.svg"
+                         Style="{StaticResource ToolbarIconButton}"
+                         SemanticProperties.Description="Volver"
+                         Clicked="OnBackClicked" />
+            <ImageButton x:Name="forwardButton"
+                         Grid.Column="1"
+                         Source="ic_nav_forward.svg"
+                         Style="{StaticResource ToolbarIconButton}"
+                         SemanticProperties.Description="Avanzar"
+                         Clicked="OnForwardClicked" />
+            <ImageButton Grid.Column="2"
+                         Source="ic_nav_home.svg"
+                         Style="{StaticResource ToolbarIconButton}"
+                         SemanticProperties.Description="Ir al inicio"
+                         Clicked="OnHomeClicked" />
+            <Image x:Name="brandImage"
+                   Grid.Column="3"
+                   Source="serioustech_mark.svg"
+                   HeightRequest="34"
+                   WidthRequest="34"
+                   Margin="4,0,8,0"
+                   VerticalOptions="Center"
+                   Aspect="AspectFit"
+                   SemanticProperties.Description="SeriousTech" />
+            <VerticalStackLayout Grid.Column="4"
+                                 Padding="2,0"
                                  VerticalOptions="Center"
                                  Spacing="0">
-                <Label Text="Serious Seguros"
+                <Label x:Name="titleLabel"
+                       Text="Serious Seguros"
                        TextColor="White"
                        FontAttributes="Bold"
                        FontSize="15"
@@ -46,11 +68,16 @@
                        TextColor="#CBD5E1"
                        FontSize="11" />
             </VerticalStackLayout>
-            <Button Grid.Column="3"
-                    Text="↻"
-                    Style="{StaticResource ToolbarButton}"
-                    SemanticProperties.Description="Recargar"
-                    Clicked="OnReloadClicked" />
+            <ImageButton Grid.Column="5"
+                         Source="ic_nav_company.svg"
+                         Style="{StaticResource ToolbarIconButton}"
+                         SemanticProperties.Description="Cambiar empresa"
+                         Clicked="OnChangeCompanyClicked" />
+            <ImageButton Grid.Column="6"
+                         Source="ic_nav_reload.svg"
+                         Style="{StaticResource ToolbarIconButton}"
+                         SemanticProperties.Description="Recargar"
+                         Clicked="OnReloadClicked" />
         </Grid>
 
         <Grid Grid.Row="1">
@@ -68,7 +95,8 @@
                                        Color="#175CD3"
                                        HeightRequest="36"
                                        WidthRequest="36" />
-                    <Label Text="Conectando con el portal…"
+                    <Label x:Name="loadingMessageLabel"
+                           Text="Conectando con el portal…"
                            TextColor="#334155"
                            FontSize="14" />
                 </VerticalStackLayout>
