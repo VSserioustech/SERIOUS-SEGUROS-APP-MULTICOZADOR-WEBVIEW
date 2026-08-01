@@ -34,7 +34,7 @@ public partial class TenantLoginPage : ContentPage, ISystemBarsPage
     {
 
 #if ANDROID
-        MainActivity.ApplySystemBarColors("#0F172A", "#F6F8FB");
+        MainActivity.ApplyDefaultPrePortalSystemBars();
 #endif
     }
 

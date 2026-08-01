@@ -17,10 +17,13 @@ namespace App.Mobile;
 public class MainActivity : MauiAppCompatActivity
 {
     private const int NotificationsPermissionRequestCode = 1001;
+    private const string DefaultStatusBarColor = "#0F172A";
+    private const string DefaultNavigationBarColor = "#F6F8FB";
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+        ApplyDefaultSystemBars();
 
         if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu &&
             CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications) != Permission.Granted)
@@ -29,6 +32,17 @@ public class MainActivity : MauiAppCompatActivity
                 [global::Android.Manifest.Permission.PostNotifications],
                 NotificationsPermissionRequestCode);
         }
+    }
+
+    protected override void OnResume()
+    {
+        base.OnResume();
+        ApplyDefaultSystemBars();
+    }
+
+    public static void ApplyDefaultPrePortalSystemBars()
+    {
+        ApplySystemBarColors(DefaultStatusBarColor, DefaultNavigationBarColor);
     }
 
     public static void ApplySystemBarColors(string hexColor)
@@ -50,49 +64,73 @@ public class MainActivity : MauiAppCompatActivity
 
         try
         {
-            var statusBarColor = Android.Graphics.Color.ParseColor(NormalizeHexColor(statusBarHexColor));
-            var navigationBarColor = Android.Graphics.Color.ParseColor(NormalizeHexColor(navigationBarHexColor));
-
-            window.ClearFlags(WindowManagerFlags.TranslucentStatus);
-            window.AddFlags(WindowManagerFlags.DrawsSystemBarBackgrounds);
-
-            if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
-            {
-                window.SetDecorFitsSystemWindows(true);
-            }
-
-            window.DecorView.SetBackgroundColor(statusBarColor);
-            window.SetStatusBarColor(statusBarColor);
-            window.SetNavigationBarColor(navigationBarColor);
-
-            var lightStatusBar = IsLightColor(statusBarColor);
-            var lightNavigationBar = IsLightColor(navigationBarColor);
-
-            if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
-            {
-                var appearance = 0;
-
-                if (lightStatusBar)
-                {
-                    appearance |= (int)WindowInsetsControllerAppearance.LightStatusBars;
-                }
-
-                if (lightNavigationBar)
-                {
-                    appearance |= (int)WindowInsetsControllerAppearance.LightNavigationBars;
-                }
-
-                window.InsetsController?.SetSystemBarsAppearance(
-                    appearance,
-                    (int)(WindowInsetsControllerAppearance.LightStatusBars | WindowInsetsControllerAppearance.LightNavigationBars));
-            }
-
-            ApplyLegacySystemBarIconContrast(window, lightStatusBar, lightNavigationBar);
+            ApplySystemBarColors(window, statusBarHexColor, navigationBarHexColor);
         }
         catch
         {
             // Keep the default Android system bars if the backend sends an invalid color.
         }
+    }
+
+    private void ApplyDefaultSystemBars()
+    {
+        var window = Window;
+        if (window is null)
+        {
+            return;
+        }
+
+        ApplySystemBarColors(window, DefaultStatusBarColor, DefaultNavigationBarColor);
+
+        // MAUI/Android can re-apply theme flags just after the first native page is created.
+        // Posting one extra pass keeps first-launch light mode from leaving dark icons on a dark bar.
+        window.DecorView.Post(() =>
+            ApplySystemBarColors(window, DefaultStatusBarColor, DefaultNavigationBarColor));
+    }
+
+    private static void ApplySystemBarColors(
+        global::Android.Views.Window window,
+        string statusBarHexColor,
+        string navigationBarHexColor)
+    {
+        var statusBarColor = Android.Graphics.Color.ParseColor(NormalizeHexColor(statusBarHexColor));
+        var navigationBarColor = Android.Graphics.Color.ParseColor(NormalizeHexColor(navigationBarHexColor));
+
+        window.ClearFlags(WindowManagerFlags.TranslucentStatus);
+        window.AddFlags(WindowManagerFlags.DrawsSystemBarBackgrounds);
+
+        if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
+        {
+            window.SetDecorFitsSystemWindows(true);
+        }
+
+        window.DecorView.SetBackgroundColor(statusBarColor);
+        window.SetStatusBarColor(statusBarColor);
+        window.SetNavigationBarColor(navigationBarColor);
+
+        var lightStatusBar = IsLightColor(statusBarColor);
+        var lightNavigationBar = IsLightColor(navigationBarColor);
+
+        if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
+        {
+            var appearance = 0;
+
+            if (lightStatusBar)
+            {
+                appearance |= (int)WindowInsetsControllerAppearance.LightStatusBars;
+            }
+
+            if (lightNavigationBar)
+            {
+                appearance |= (int)WindowInsetsControllerAppearance.LightNavigationBars;
+            }
+
+            window.InsetsController?.SetSystemBarsAppearance(
+                appearance,
+                (int)(WindowInsetsControllerAppearance.LightStatusBars | WindowInsetsControllerAppearance.LightNavigationBars));
+        }
+
+        ApplyLegacySystemBarIconContrast(window, lightStatusBar, lightNavigationBar);
     }
 
     private static void ApplyLegacySystemBarIconContrast(
