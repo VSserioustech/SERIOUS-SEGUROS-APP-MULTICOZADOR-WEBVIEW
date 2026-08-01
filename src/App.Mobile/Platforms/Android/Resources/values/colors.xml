@@ -3,4 +3,6 @@
     <color name="colorPrimary">#512BD4</color>
     <color name="colorPrimaryDark">#2B0B98</color>
     <color name="colorAccent">#2B0B98</color>
+    <color name="serious_status_bar_default">#0F172A</color>
+    <color name="serious_navigation_bar_default">#F6F8FB</color>
 </resources>

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="App.Mobile.MainPage"
              BackgroundColor="#F6F8FB"
-             SafeAreaEdges="None">
+             SafeAreaEdges="Container">
 
     <ContentPage.Resources>
         <Style x:Key="ToolbarIconButton" TargetType="ImageButton">

@@ -7,7 +7,7 @@ using AColor = Android.Graphics.Color;
 namespace App.Mobile;
 
 [Activity(
-    Theme = "@style/Maui.SplashTheme",
+    Theme = "@style/Serious.SplashTheme",
     MainLauncher = true,
     ConfigurationChanges = ConfigChanges.ScreenSize |
         ConfigChanges.Orientation |
@@ -23,6 +23,7 @@ public class MainActivity : MauiAppCompatActivity
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
+        SetTheme(Resource.Style.Serious_MainTheme);
         base.OnCreate(savedInstanceState);
         ApplyDefaultSystemBars();
 

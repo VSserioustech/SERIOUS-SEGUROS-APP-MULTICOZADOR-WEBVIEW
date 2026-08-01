@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+    <style name="Serious.MainTheme" parent="Maui.MainTheme.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:statusBarColor">@color/serious_status_bar_default</item>
+        <item name="android:navigationBarColor">@color/serious_navigation_bar_default</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+
+    <style name="Serious.SplashTheme" parent="Maui.SplashTheme">
+        <item name="android:statusBarColor">@color/serious_status_bar_default</item>
+        <item name="android:navigationBarColor">@color/serious_navigation_bar_default</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+</resources>

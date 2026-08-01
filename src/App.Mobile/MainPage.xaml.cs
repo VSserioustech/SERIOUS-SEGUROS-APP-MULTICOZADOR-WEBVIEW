@@ -8,10 +8,6 @@ namespace App.Mobile;
 
 public partial class MainPage : ContentPage, ISystemBarsPage
 {
-    private const double ToolbarBaseHeight = 56;
-    private const double ToolbarHorizontalPadding = 8;
-    private const double ToolbarVerticalPadding = 6;
-
     private readonly IWebPortalNavigationPolicy _navigationPolicy;
     private readonly IPortalDownloadPolicy _downloadPolicy;
     private readonly IPortalFileDownloader _fileDownloader;
@@ -212,23 +208,9 @@ public partial class MainPage : ContentPage, ISystemBarsPage
     {
 #if ANDROID
         var primaryColor = NormalizeHexColor(_whitelabelConfig?.PrimaryColor ?? "#0F172A", "#0F172A");
-        MainActivity.ApplyImmersiveSystemBarColors(primaryColor, primaryColor);
-        ApplyAndroidImmersiveToolbarInsets();
+        MainActivity.ApplySystemBarColors(primaryColor, primaryColor);
 #endif
     }
-
-#if ANDROID
-    private void ApplyAndroidImmersiveToolbarInsets()
-    {
-        var statusBarHeight = MainActivity.GetStatusBarHeight();
-        toolbarRow.Height = new GridLength(ToolbarBaseHeight + statusBarHeight);
-        toolbarGrid.Padding = new Thickness(
-            ToolbarHorizontalPadding,
-            ToolbarVerticalPadding + statusBarHeight,
-            ToolbarHorizontalPadding,
-            ToolbarVerticalPadding);
-    }
-#endif
 
     private static string NormalizeHexColor(string value, string fallback)
     {
