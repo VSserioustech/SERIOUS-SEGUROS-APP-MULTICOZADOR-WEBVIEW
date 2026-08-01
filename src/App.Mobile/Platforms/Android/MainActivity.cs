@@ -2,7 +2,9 @@ using Android.App;
 using Android.Content.PM;
 using Android.OS;
 using Android.Views;
+using Android.Widget;
 using AColor = Android.Graphics.Color;
+using AView = Android.Views.View;
 
 namespace App.Mobile;
 
@@ -20,6 +22,7 @@ public class MainActivity : MauiAppCompatActivity
     private const int NotificationsPermissionRequestCode = 1001;
     private const string DefaultStatusBarColor = "#0F172A";
     private const string DefaultNavigationBarColor = "#F6F8FB";
+    private static readonly int StatusBarToolbarOverlayId = AView.GenerateViewId();
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -111,7 +114,12 @@ public class MainActivity : MauiAppCompatActivity
 
         try
         {
-            ApplySystemBarColors(window, statusBarHexColor, navigationBarHexColor, fitsSystemWindows: true);
+            ApplySystemBarColors(window, statusBarHexColor, navigationBarHexColor, fitsSystemWindows: false);
+
+            // Some OEM skins (ColorOS/Android 16) repaint the system status bar after MAUI/WebView
+            // attaches. Re-apply the native top toolbar one frame later.
+            window.DecorView.Post(() =>
+                ApplySystemBarColors(window, statusBarHexColor, navigationBarHexColor, fitsSystemWindows: false));
         }
         catch
         {
@@ -127,12 +135,12 @@ public class MainActivity : MauiAppCompatActivity
             return;
         }
 
-        ApplySystemBarColors(window, DefaultStatusBarColor, DefaultNavigationBarColor, fitsSystemWindows: true);
+        ApplySystemBarColors(window, DefaultStatusBarColor, DefaultNavigationBarColor, fitsSystemWindows: false);
 
         // MAUI/Android can re-apply theme flags just after the first native page is created.
         // Posting one extra pass keeps first-launch light mode from leaving dark icons on a dark bar.
         window.DecorView.Post(() =>
-            ApplySystemBarColors(window, DefaultStatusBarColor, DefaultNavigationBarColor, fitsSystemWindows: true));
+            ApplySystemBarColors(window, DefaultStatusBarColor, DefaultNavigationBarColor, fitsSystemWindows: false));
     }
 
     private static void ReapplyCurrentPageSystemBars()
@@ -169,8 +177,9 @@ public class MainActivity : MauiAppCompatActivity
         }
 
         window.DecorView.SetBackgroundColor(statusBarColor);
-        window.SetStatusBarColor(fitsSystemWindows ? statusBarColor : AColor.Transparent);
+        window.SetStatusBarColor(AColor.Transparent);
         window.SetNavigationBarColor(navigationBarColor);
+        ApplyNativeStatusBarToolbar(window, statusBarColor);
 
         var lightStatusBar = IsLightColor(statusBarColor);
         var lightNavigationBar = IsLightColor(navigationBarColor);
@@ -195,6 +204,57 @@ public class MainActivity : MauiAppCompatActivity
         }
 
         ApplyLegacySystemBarIconContrast(window, lightStatusBar, lightNavigationBar);
+    }
+
+    private static void ApplyNativeStatusBarToolbar(
+        global::Android.Views.Window window,
+        AColor statusBarColor)
+    {
+        if (window.DecorView is not ViewGroup decorView)
+        {
+            return;
+        }
+
+        var statusBarHeight = GetStatusBarHeightPixels(decorView);
+        if (statusBarHeight <= 0)
+        {
+            return;
+        }
+
+        var toolbar = decorView.FindViewById<AView>(StatusBarToolbarOverlayId);
+        if (toolbar is null)
+        {
+            toolbar = new AView(decorView.Context)
+            {
+                Id = StatusBarToolbarOverlayId,
+                Clickable = false,
+                Focusable = false
+            };
+
+            var layoutParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MatchParent,
+                statusBarHeight,
+                GravityFlags.Top);
+
+            decorView.AddView(toolbar, layoutParams);
+        }
+        else if (toolbar.LayoutParameters is ViewGroup.LayoutParams layoutParameters &&
+                 layoutParameters.Height != statusBarHeight)
+        {
+            layoutParameters.Height = statusBarHeight;
+            toolbar.LayoutParameters = layoutParameters;
+        }
+
+        toolbar.SetBackgroundColor(statusBarColor);
+        toolbar.BringToFront();
+        toolbar.Visibility = ViewStates.Visible;
+    }
+
+    private static int GetStatusBarHeightPixels(AView decorView)
+    {
+        var resources = decorView.Context.Resources;
+        var resourceId = resources.GetIdentifier("status_bar_height", "dimen", "android");
+        return resourceId > 0 ? resources.GetDimensionPixelSize(resourceId) : 0;
     }
 
     private static void ApplyLegacySystemBarIconContrast(
