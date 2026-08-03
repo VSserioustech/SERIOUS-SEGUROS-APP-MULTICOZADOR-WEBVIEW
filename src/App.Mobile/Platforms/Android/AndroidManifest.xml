@@ -4,13 +4,13 @@
                  android:usesCleartextTraffic="false"
                  android:icon="@mipmap/appicon"
                  android:roundIcon="@mipmap/appicon_round"
-                 android:label="Serious Seguros Portal"
+                 android:label="Serious"
                  android:supportsRtl="true">
         <activity-alias android:name=".LauncherDefault"
                         android:targetActivity=".MainActivity"
                         android:enabled="true"
                         android:exported="true"
-                        android:label="Serious Seguros Portal"
+                        android:label="Serious"
                         android:icon="@mipmap/appicon"
                         android:roundIcon="@mipmap/appicon_round">
             <intent-filter>
@@ -23,7 +23,7 @@
                         android:targetActivity=".MainActivity"
                         android:enabled="false"
                         android:exported="true"
-                        android:label="Serious Seguros"
+                        android:label="Serious"
                         android:icon="@drawable/launcher_serious"
                         android:roundIcon="@drawable/launcher_serious">
             <intent-filter>
@@ -36,7 +36,7 @@
                         android:targetActivity=".MainActivity"
                         android:enabled="false"
                         android:exported="true"
-                        android:label="ALI Seguros"
+                        android:label="Ali"
                         android:icon="@drawable/launcher_ali"
                         android:roundIcon="@drawable/launcher_ali">
             <intent-filter>
@@ -49,9 +49,22 @@
                         android:targetActivity=".MainActivity"
                         android:enabled="false"
                         android:exported="true"
-                        android:label="CBE"
+                        android:label="Cbe"
                         android:icon="@drawable/launcher_cbe"
                         android:roundIcon="@drawable/launcher_cbe">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherOak"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="Oak"
+                        android:icon="@drawable/launcher_oak"
+                        android:roundIcon="@drawable/launcher_oak">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

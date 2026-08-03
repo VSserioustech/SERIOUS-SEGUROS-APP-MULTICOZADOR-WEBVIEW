@@ -177,6 +177,7 @@ public partial class WhitelabelWizardPage : ContentPage, ISystemBarsPage
             {
                 "ali" => "ali_mark.svg",
                 "cbe" => "cbe_mark.svg",
+                "oak" => "oak_mark.svg",
                 _ => "serioustech_mark.svg"
             };
     }

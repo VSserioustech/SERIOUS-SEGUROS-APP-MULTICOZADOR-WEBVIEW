@@ -30,7 +30,7 @@
         <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
         <!-- Display name -->
-        <ApplicationTitle>Serious Seguros Portal</ApplicationTitle>
+        <ApplicationTitle>Serious</ApplicationTitle>
 
         <!-- App Identifier -->
         <ApplicationId>com.serioustech.seriousseguros.portal</ApplicationId>

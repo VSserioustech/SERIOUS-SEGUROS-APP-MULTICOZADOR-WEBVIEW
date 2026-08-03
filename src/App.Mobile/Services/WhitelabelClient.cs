@@ -19,7 +19,7 @@ public sealed class WhitelabelClient : IWhitelabelClient
             EmpresaId: "serious",
             Url: "https://portal-qa.seriouseguros.com.mx/",
             Version: "1.0.0",
-            NombreAplicacion: "Serious Seguros Portal",
+            NombreAplicacion: "Serious",
             LauncherIconKey: "serious",
             LogoUrl: "https://portal-qa.seriouseguros.com.mx/brand/serioustech-mark.svg",
             PrimaryColor: "#0F172A",
@@ -30,7 +30,7 @@ public sealed class WhitelabelClient : IWhitelabelClient
             EmpresaId: "ali",
             Url: "https://ali-qa.seriouseguros.com.mx/",
             Version: "1.0.0",
-            NombreAplicacion: "Ali Asociados",
+            NombreAplicacion: "Ali",
             LauncherIconKey: "ali",
             LogoUrl: "https://ali-qa.seriouseguros.com.mx/brand/serioustech-mark.svg",
             PrimaryColor: "#3B0764",
@@ -41,7 +41,7 @@ public sealed class WhitelabelClient : IWhitelabelClient
             EmpresaId: "cbe",
             Url: "https://cbe-qa.seriouseguros.com.mx/",
             Version: "1.0.0",
-            NombreAplicacion: "CBE",
+            NombreAplicacion: "Cbe",
             LauncherIconKey: "cbe",
             LogoUrl: "https://cbe-qa.seriouseguros.com.mx/brand/serioustech-mark.svg",
             PrimaryColor: "#1E3A8A",
@@ -194,7 +194,7 @@ public sealed class WhitelabelClient : IWhitelabelClient
         var configured = whiteLabel.Configured;
         var appName = configured
             ? FirstNonEmpty(whiteLabel.AppName, company.Name, profile.Tenant.Name)
-            : FirstNonEmpty(company.Name, profile.Tenant.Name, "Serious Seguros Portal");
+            : FirstNonEmpty(company.Name, profile.Tenant.Name, "Serious");
 
         return new WhitelabelConfig(
             TenantId: profile.Tenant.Id,
@@ -248,6 +248,11 @@ public sealed class WhitelabelClient : IWhitelabelClient
         if (key.Contains("cbe", StringComparison.OrdinalIgnoreCase))
         {
             return "cbe";
+        }
+
+        if (key.Contains("oak", StringComparison.OrdinalIgnoreCase))
+        {
+            return "oak";
         }
 
         return "serious";

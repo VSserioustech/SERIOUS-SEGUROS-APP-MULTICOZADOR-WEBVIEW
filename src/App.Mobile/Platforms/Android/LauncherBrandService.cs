@@ -10,13 +10,15 @@ public sealed class LauncherBrandService : ILauncherBrandService
     private const string SeriousAlias = "LauncherSerious";
     private const string AliAlias = "LauncherAli";
     private const string CbeAlias = "LauncherCbe";
+    private const string OakAlias = "LauncherOak";
 
     private static readonly string[] AllAliases =
     [
         DefaultAlias,
         SeriousAlias,
         AliAlias,
-        CbeAlias
+        CbeAlias,
+        OakAlias
     ];
 
     public void Apply(string? launcherIconKey)
@@ -37,6 +39,7 @@ public sealed class LauncherBrandService : ILauncherBrandService
             "serious" or "serious-seguros" or "serious-tech" or "serioustech" => SeriousAlias,
             "ali" or "ali-asociados" or "ali-seguros" => AliAlias,
             "cbe" or "cbe+" or "cbe-plus" => CbeAlias,
+            "oak" or "oak-seguros" or "oak-insurance" => OakAlias,
             _ => DefaultAlias
         };
     }

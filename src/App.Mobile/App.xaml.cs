@@ -28,7 +28,7 @@ public partial class App : Microsoft.Maui.Controls.Application
                 ? _serviceProvider.GetRequiredService<WhitelabelWizardPage>()
                 : _serviceProvider.GetRequiredService<MainPage>();
 
-        return new Window(page) { Title = _whitelabelState.Current?.NombreAplicacion ?? "Serious Seguros Portal" };
+        return new Window(page) { Title = _whitelabelState.Current?.NombreAplicacion ?? "Serious" };
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
