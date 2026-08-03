@@ -47,6 +47,12 @@ public class MainActivity : MauiAppCompatActivity
         ReapplyCurrentPageSystemBars();
     }
 
+    protected override void OnStop()
+    {
+        base.OnStop();
+        Platforms.Android.LauncherBrandService.ApplyQueuedIfAny();
+    }
+
     public static void ApplyDefaultPrePortalSystemBars()
     {
         ApplySystemBarColors(DefaultStatusBarColor, DefaultNavigationBarColor);

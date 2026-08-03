@@ -122,7 +122,6 @@ public sealed class WhitelabelState : IWhitelabelState
         try
         {
             Current = JsonSerializer.Deserialize<WhitelabelConfig>(raw);
-            ApplyLauncherBrand();
         }
         catch
         {
