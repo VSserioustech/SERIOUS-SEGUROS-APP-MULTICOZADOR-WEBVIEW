@@ -38,6 +38,11 @@ public static class MauiProgram
         builder.Services.AddInfrastructure();
         builder.Services.AddSingleton<IWebViewCookieProvider, WebViewCookieProvider>();
         builder.Services.AddSingleton<IPortalFileDownloader, PortalFileDownloader>();
+#if ANDROID
+        builder.Services.AddSingleton<ILauncherBrandService, Platforms.Android.LauncherBrandService>();
+#else
+        builder.Services.AddSingleton<ILauncherBrandService, LauncherBrandService>();
+#endif
         builder.Services.AddSingleton<IWhitelabelState, WhitelabelState>();
         builder.Services.AddSingleton<IWhitelabelClient>(serviceProvider =>
         {

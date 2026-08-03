@@ -4,7 +4,60 @@
                  android:usesCleartextTraffic="false"
                  android:icon="@mipmap/appicon"
                  android:roundIcon="@mipmap/appicon_round"
+                 android:label="Serious Seguros Portal"
                  android:supportsRtl="true">
+        <activity-alias android:name=".LauncherDefault"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="true"
+                        android:exported="true"
+                        android:label="Serious Seguros Portal"
+                        android:icon="@mipmap/appicon"
+                        android:roundIcon="@mipmap/appicon_round">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherSerious"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="Serious Seguros"
+                        android:icon="@drawable/launcher_serious"
+                        android:roundIcon="@drawable/launcher_serious">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherAli"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="ALI Seguros"
+                        android:icon="@drawable/launcher_ali"
+                        android:roundIcon="@drawable/launcher_ali">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherCbe"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="CBE"
+                        android:icon="@drawable/launcher_cbe"
+                        android:roundIcon="@drawable/launcher_cbe">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <provider android:name="androidx.core.content.FileProvider"
                   android:authorities="${applicationId}.fileprovider"
                   android:exported="false"

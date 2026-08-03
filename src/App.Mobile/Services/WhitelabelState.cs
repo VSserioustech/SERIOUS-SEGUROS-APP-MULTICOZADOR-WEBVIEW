@@ -7,6 +7,12 @@ public sealed class WhitelabelState : IWhitelabelState
     private const string PreferenceKey = "Whitelabel.Current.v2";
     private const string TenantSessionPreferenceKey = "Whitelabel.TenantSession.v1";
     private const string TenantProfilePreferenceKey = "Whitelabel.TenantProfile.v1";
+    private readonly ILauncherBrandService _launcherBrandService;
+
+    public WhitelabelState(ILauncherBrandService launcherBrandService)
+    {
+        _launcherBrandService = launcherBrandService;
+    }
 
     public WhitelabelConfig? Current { get; private set; }
 
@@ -22,6 +28,7 @@ public sealed class WhitelabelState : IWhitelabelState
     {
         LoadTenantFromPreferences();
         LoadSelectionFromPreferences();
+        ApplyLauncherBrand();
         return Task.CompletedTask;
     }
 
@@ -49,6 +56,7 @@ public sealed class WhitelabelState : IWhitelabelState
     {
         Current = config;
         Preferences.Default.Set(PreferenceKey, JsonSerializer.Serialize(config));
+        _launcherBrandService.Apply(config.LauncherIconKey);
         return Task.CompletedTask;
     }
 
@@ -56,6 +64,7 @@ public sealed class WhitelabelState : IWhitelabelState
     {
         Current = null;
         Preferences.Default.Remove(PreferenceKey);
+        _launcherBrandService.ApplyDefault();
     }
 
     public void ClearTenant()
@@ -113,11 +122,24 @@ public sealed class WhitelabelState : IWhitelabelState
         try
         {
             Current = JsonSerializer.Deserialize<WhitelabelConfig>(raw);
+            ApplyLauncherBrand();
         }
         catch
         {
             Preferences.Default.Remove(PreferenceKey);
             Current = null;
+            _launcherBrandService.ApplyDefault();
         }
+    }
+
+    private void ApplyLauncherBrand()
+    {
+        if (Current is null)
+        {
+            _launcherBrandService.ApplyDefault();
+            return;
+        }
+
+        _launcherBrandService.Apply(Current.LauncherIconKey);
     }
 }

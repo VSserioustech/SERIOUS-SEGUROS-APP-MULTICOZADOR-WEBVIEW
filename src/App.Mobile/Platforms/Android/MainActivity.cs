@@ -9,8 +9,10 @@ using AView = Android.Views.View;
 namespace App.Mobile;
 
 [Activity(
+    Name = "com.serioustech.seriousseguros.portal.MainActivity",
     Theme = "@style/Serious.SplashTheme",
-    MainLauncher = true,
+    MainLauncher = false,
+    Exported = true,
     ConfigurationChanges = ConfigChanges.ScreenSize |
         ConfigChanges.Orientation |
         ConfigChanges.UiMode |
