@@ -7,7 +7,7 @@ namespace App.Mobile.Platforms.Android;
 public sealed class LauncherBrandService : ILauncherBrandService
 {
     private const string PendingLauncherIconKeyPreferenceKey = "Whitelabel.PendingLauncherIconKey.v1";
-    private static readonly bool RuntimeLauncherBrandingEnabled = false;
+    private static readonly bool RuntimeLauncherBrandingEnabled = true;
     private const string DefaultAlias = "LauncherDefault";
     private const string DefaultIconKey = "default";
     private const string SeriousAlias = "LauncherSerious";

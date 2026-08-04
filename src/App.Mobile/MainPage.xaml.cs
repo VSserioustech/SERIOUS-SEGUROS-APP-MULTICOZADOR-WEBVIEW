@@ -6,14 +6,16 @@ using Microsoft.Extensions.Options;
 
 namespace App.Mobile;
 
-public partial class MainPage : ContentPage, ISystemBarsPage
+public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAwarePage
 {
+    private static readonly TimeSpan MinimumResumeNotificationInterval = TimeSpan.FromMilliseconds(750);
     private readonly IWebPortalNavigationPolicy _navigationPolicy;
     private readonly IPortalDownloadPolicy _downloadPolicy;
     private readonly IPortalFileDownloader _fileDownloader;
     private readonly IWhitelabelState _whitelabelState;
     private readonly WhitelabelConfig? _whitelabelConfig;
     private readonly Uri _startUri;
+    private DateTimeOffset _lastResumeNotificationUtc = DateTimeOffset.MinValue;
 
     public MainPage(
         IOptions<WebPortalOptions> options,
@@ -210,6 +212,18 @@ public partial class MainPage : ContentPage, ISystemBarsPage
         var primaryColor = NormalizeHexColor(_whitelabelConfig?.PrimaryColor ?? "#0F172A", "#0F172A");
         MainActivity.ApplySystemBarColors(primaryColor, primaryColor);
 #endif
+    }
+
+    public void OnNativeResume()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastResumeNotificationUtc < MinimumResumeNotificationInterval)
+        {
+            return;
+        }
+
+        _lastResumeNotificationUtc = now;
+        _ = NotifyPortalResumeAsync();
     }
 
     private static string NormalizeHexColor(string value, string fallback)
@@ -499,6 +513,65 @@ public partial class MainPage : ContentPage, ISystemBarsPage
         catch
         {
             // The portal may reject script evaluation while it is still rendering.
+        }
+    }
+
+    private async Task NotifyPortalResumeAsync()
+    {
+        const string script = """
+            (function () {
+                var resumeDetail = {
+                    source: 'serious-mobile-android',
+                    resumedAt: new Date().toISOString(),
+                    href: window.location.href
+                };
+
+                window.__seriousMobileLastResume = resumeDetail;
+
+                function dispatch(target, eventName) {
+                    try {
+                        target.dispatchEvent(new Event(eventName));
+                    } catch (error) {
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                try {
+                    document.dispatchEvent(new CustomEvent('serious-mobile-resume', { detail: resumeDetail }));
+                } catch (error) {
+                    dispatch(document, 'serious-mobile-resume');
+                }
+
+                dispatch(document, 'visibilitychange');
+                dispatch(window, 'focus');
+                dispatch(window, 'online');
+                dispatch(window, 'resize');
+
+                if (window.visualViewport) {
+                    dispatch(window.visualViewport, 'resize');
+                }
+
+                window.requestAnimationFrame(function () {
+                    dispatch(window, 'resize');
+
+                    if (window.visualViewport) {
+                        dispatch(window.visualViewport, 'resize');
+                    }
+                });
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The WebView can reject JavaScript while Android is resuming or the portal is reconnecting.
         }
     }
 

@@ -45,6 +45,7 @@ public class MainActivity : MauiAppCompatActivity
     {
         base.OnResume();
         ReapplyCurrentPageSystemBars();
+        NotifyCurrentPageResumed();
     }
 
     protected override void OnStop()
@@ -164,6 +165,17 @@ public class MainActivity : MauiAppCompatActivity
             }
 
             ApplyDefaultPrePortalSystemBars();
+        });
+    }
+
+    private static void NotifyCurrentPageResumed()
+    {
+        Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (Microsoft.Maui.Controls.Application.Current?.Windows.FirstOrDefault()?.Page is INativeResumeAwarePage resumeAwarePage)
+            {
+                resumeAwarePage.OnNativeResume();
+            }
         });
     }
 
