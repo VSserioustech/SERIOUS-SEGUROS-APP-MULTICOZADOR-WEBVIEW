@@ -427,18 +427,51 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                     }, 120);
                 }
 
-                startResponsivePulseWindow(4500);
+                function getHistoryLayoutSignature() {
+                    var text = (document.body && document.body.innerText || '').toLowerCase();
+                    var isHistory = text.indexOf('historial') >= 0
+                        || text.indexOf('cotizaciones') >= 0
+                        || text.indexOf('cargando historial') >= 0;
+
+                    if (!isHistory) {
+                        return '';
+                    }
+
+                    return [
+                        text.indexOf('cargando historial') >= 0 ? 'loading' : 'ready',
+                        text.indexOf('pdf') >= 0 ? 'pdf' : '',
+                        text.indexOf('zip') >= 0 ? 'zip' : '',
+                        text.indexOf('reporte') >= 0 ? 'reporte' : '',
+                        text.indexOf('whatsapp') >= 0 ? 'whatsapp' : '',
+                        text.indexOf('cotizada') >= 0 ? 'cotizada' : '',
+                        document.querySelectorAll('button, a, [role="button"]').length
+                    ].join('|');
+                }
+
+                function checkHistoryLayout() {
+                    var signature = getHistoryLayoutSignature();
+                    if (!signature || signature === window.__seriousMobileHistoryLayoutSignature) {
+                        return;
+                    }
+
+                    window.__seriousMobileHistoryLayoutSignature = signature;
+                    startResponsivePulseWindow(signature.indexOf('loading') >= 0 ? 1200 : 2800);
+                }
+
+                checkHistoryLayout();
+                startResponsivePulseWindow(2500);
 
                 if (!window.__seriousMobileResponsivePulseInstalled) {
                     window.__seriousMobileResponsivePulseInstalled = true;
 
-                    document.addEventListener('click', scheduleResponsivePulse, { capture: true, passive: true });
-                    document.addEventListener('touchend', scheduleResponsivePulse, { capture: true, passive: true });
-                    document.addEventListener('keyup', scheduleResponsivePulse, true);
+                    document.addEventListener('click', checkHistoryLayout, { capture: true, passive: true });
+                    document.addEventListener('touchend', checkHistoryLayout, { capture: true, passive: true });
+                    document.addEventListener('keyup', checkHistoryLayout, true);
 
                     if (window.MutationObserver) {
                         window.__seriousMobileResponsiveMutationObserver = new MutationObserver(function () {
-                            scheduleResponsivePulse();
+                            window.clearTimeout(window.__seriousMobileHistoryLayoutTimer);
+                            window.__seriousMobileHistoryLayoutTimer = window.setTimeout(checkHistoryLayout, 120);
                         });
 
                         window.__seriousMobileResponsiveMutationObserver.observe(document.body || document.documentElement, {
