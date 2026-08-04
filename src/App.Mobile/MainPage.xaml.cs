@@ -89,6 +89,7 @@ public partial class MainPage : ContentPage, ISystemBarsPage
         {
             errorOverlay.IsVisible = false;
             await InstallPortalVisualFixesAsync();
+            await InstallPortalResponsivePulseAsync();
 #if ANDROID
             await InstallAndroidBlobCaptureAsync();
 #endif
@@ -379,6 +380,54 @@ public partial class MainPage : ContentPage, ISystemBarsPage
         catch
         {
             // The portal can reject script evaluation while Blazor is reconnecting or navigating.
+        }
+    }
+
+    private async Task InstallPortalResponsivePulseAsync()
+    {
+        const string script = """
+            (function () {
+                function pulseResponsiveLayout() {
+                    window.dispatchEvent(new Event('resize'));
+                    window.dispatchEvent(new Event('orientationchange'));
+
+                    window.requestAnimationFrame(function () {
+                        window.dispatchEvent(new Event('resize'));
+                    });
+                }
+
+                function scheduleResponsivePulse() {
+                    window.clearTimeout(window.__seriousMobileResponsivePulseTimer);
+                    window.__seriousMobileResponsivePulseTimer = window.setTimeout(function () {
+                        pulseResponsiveLayout();
+                        window.setTimeout(pulseResponsiveLayout, 250);
+                        window.setTimeout(pulseResponsiveLayout, 750);
+                    }, 120);
+                }
+
+                pulseResponsiveLayout();
+                window.setTimeout(pulseResponsiveLayout, 250);
+                window.setTimeout(pulseResponsiveLayout, 1000);
+
+                if (!window.__seriousMobileResponsivePulseInstalled) {
+                    window.__seriousMobileResponsivePulseInstalled = true;
+
+                    document.addEventListener('click', scheduleResponsivePulse, { capture: true, passive: true });
+                    document.addEventListener('touchend', scheduleResponsivePulse, { capture: true, passive: true });
+                    document.addEventListener('keyup', scheduleResponsivePulse, true);
+                }
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The portal may reject script evaluation while it is still rendering.
         }
     }
 
