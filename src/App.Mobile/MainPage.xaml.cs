@@ -267,7 +267,8 @@ public partial class MainPage : ContentPage, ISystemBarsPage
             (function () {
                 if (window.__seriousMobileVisualFixesInstalled) {
                     if (window.__seriousMobileApplyIconContrastFix) {
-                        window.__seriousMobileApplyIconContrastFix();
+                        window.clearTimeout(window.__seriousMobileIconFixTimer);
+                        window.__seriousMobileIconFixTimer = window.setTimeout(window.__seriousMobileApplyIconContrastFix, 250);
                     }
                     return true;
                 }
@@ -365,17 +366,8 @@ public partial class MainPage : ContentPage, ISystemBarsPage
 
                 window.__seriousMobileApplyIconContrastFix();
 
-                var observer = new MutationObserver(function () {
-                    window.clearTimeout(window.__seriousMobileIconFixTimer);
-                    window.__seriousMobileIconFixTimer = window.setTimeout(window.__seriousMobileApplyIconContrastFix, 80);
-                });
-
-                observer.observe(document.documentElement, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                    attributeFilter: ['class', 'style']
-                });
+                window.setTimeout(window.__seriousMobileApplyIconContrastFix, 250);
+                window.setTimeout(window.__seriousMobileApplyIconContrastFix, 1000);
 
                 return true;
             })();
@@ -417,13 +409,24 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                         var empty = !image.getAttribute('src');
 
                         if (hasLogoSize && (looksLikeLogo || failed || empty)) {
+                            if (image.dataset && image.dataset.seriousMobileLogoPatched === finalLogo) {
+                                return;
+                            }
+
                             image.onerror = function () {
                                 if (fallbackLogo && image.src !== fallbackLogo) {
                                     image.src = fallbackLogo;
                                 }
                             };
 
-                            image.src = finalLogo;
+                            if (image.src !== finalLogo) {
+                                image.src = finalLogo;
+                            }
+
+                            if (image.dataset) {
+                                image.dataset.seriousMobileLogoPatched = finalLogo;
+                            }
+
                             image.style.setProperty('object-fit', 'contain', 'important');
                             image.style.setProperty('object-position', 'center', 'important');
                             image.style.setProperty('width', '52px', 'important');
@@ -453,21 +456,6 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                 patchTenantLogo();
                 window.setTimeout(patchTenantLogo, 250);
                 window.setTimeout(patchTenantLogo, 1000);
-                window.setTimeout(patchTenantLogo, 2500);
-
-                if (!window.__seriousMobileTenantLogoObserver) {
-                    window.__seriousMobileTenantLogoObserver = new MutationObserver(function () {
-                        window.clearTimeout(window.__seriousMobileTenantLogoTimer);
-                        window.__seriousMobileTenantLogoTimer = window.setTimeout(patchTenantLogo, 120);
-                    });
-
-                    window.__seriousMobileTenantLogoObserver.observe(document.documentElement, {
-                        childList: true,
-                        subtree: true,
-                        attributes: true,
-                        attributeFilter: ['src', 'class', 'style']
-                    });
-                }
 
                 return true;
             })();
