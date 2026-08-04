@@ -7,6 +7,7 @@ namespace App.Mobile.Platforms.Android;
 public sealed class LauncherBrandService : ILauncherBrandService
 {
     private const string PendingLauncherIconKeyPreferenceKey = "Whitelabel.PendingLauncherIconKey.v1";
+    private static readonly bool RuntimeLauncherBrandingEnabled = false;
     private const string DefaultAlias = "LauncherDefault";
     private const string DefaultIconKey = "default";
     private const string SeriousAlias = "LauncherSerious";
@@ -25,16 +26,34 @@ public sealed class LauncherBrandService : ILauncherBrandService
 
     public void Apply(string? launcherIconKey)
     {
+        if (!RuntimeLauncherBrandingEnabled)
+        {
+            Preferences.Default.Remove(PendingLauncherIconKeyPreferenceKey);
+            return;
+        }
+
         QueueAliasChange(launcherIconKey);
     }
 
     public void ApplyDefault()
     {
+        if (!RuntimeLauncherBrandingEnabled)
+        {
+            Preferences.Default.Remove(PendingLauncherIconKeyPreferenceKey);
+            return;
+        }
+
         QueueAliasChange(DefaultIconKey);
     }
 
     public static void ApplyQueuedIfAny()
     {
+        if (!RuntimeLauncherBrandingEnabled)
+        {
+            Preferences.Default.Remove(PendingLauncherIconKeyPreferenceKey);
+            return;
+        }
+
         var pendingIconKey = Preferences.Default.Get(PendingLauncherIconKeyPreferenceKey, string.Empty);
         if (string.IsNullOrWhiteSpace(pendingIconKey))
         {
