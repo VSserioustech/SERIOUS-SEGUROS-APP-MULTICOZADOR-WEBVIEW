@@ -89,7 +89,6 @@ public partial class MainPage : ContentPage, ISystemBarsPage
         {
             errorOverlay.IsVisible = false;
             await InstallPortalVisualFixesAsync();
-            await ApplyPortalWhitelabelLogoAsync();
 #if ANDROID
             await InstallAndroidBlobCaptureAsync();
 #endif
