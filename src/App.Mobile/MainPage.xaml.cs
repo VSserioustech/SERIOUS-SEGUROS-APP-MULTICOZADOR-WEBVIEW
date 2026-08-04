@@ -456,6 +456,19 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                 patchTenantLogo();
                 window.setTimeout(patchTenantLogo, 250);
                 window.setTimeout(patchTenantLogo, 1000);
+                window.setTimeout(patchTenantLogo, 2500);
+
+                if (!window.__seriousMobileTenantLogoInteractionPatch) {
+                    window.__seriousMobileTenantLogoInteractionPatch = true;
+                    var scheduleTenantLogoPatch = function () {
+                        window.clearTimeout(window.__seriousMobileTenantLogoTimer);
+                        window.__seriousMobileTenantLogoTimer = window.setTimeout(patchTenantLogo, 180);
+                    };
+
+                    document.addEventListener('click', scheduleTenantLogoPatch, true);
+                    document.addEventListener('touchend', scheduleTenantLogoPatch, true);
+                    document.addEventListener('keyup', scheduleTenantLogoPatch, true);
+                }
 
                 return true;
             })();
@@ -665,24 +678,50 @@ public partial class MainPage : ContentPage, ISystemBarsPage
             return string.Empty;
         }
 
-        var iconKey = config.LauncherIconKey.Trim().ToLowerInvariant();
-        var primary = NormalizeHexColor(config.PrimaryColor, "#0F172A");
-        var secondary = NormalizeHexColor(config.SecondaryColor, "#175CD3");
-        var label = iconKey switch
-        {
-            "ali" => "ALI",
-            "cbe" => "CBE+",
-            _ => "ST"
-        };
-
-        var svg = $"""
-            <svg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'>
-              <rect width='128' height='128' rx='28' fill='{primary}'/>
-              <circle cx='98' cy='30' r='14' fill='{secondary}'/>
-              <text x='64' y='75' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='32' font-weight='800' fill='#FFFFFF'>{label}</text>
-            </svg>
-            """;
+        var svg = GetFallbackLogoSvg(config.LauncherIconKey);
 
         return "data:image/svg+xml;charset=utf-8," + Uri.EscapeDataString(svg);
+    }
+
+    private static string GetFallbackLogoSvg(string launcherIconKey)
+    {
+        return launcherIconKey.Trim().ToLowerInvariant() switch
+        {
+            "ali" => """
+                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="128" height="128" rx="28" fill="#F59E0B"/>
+                  <path d="M34 84L58 32H72L96 84H80L76 74H54L50 84H34ZM59 60H71L65 45L59 60Z" fill="#FFFFFF"/>
+                  <text x="64" y="106" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800" fill="#FFFFFF">ALI</text>
+                </svg>
+                """,
+            "cbe" => """
+                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="128" height="128" rx="28" fill="#0F766E"/>
+                  <circle cx="98" cy="30" r="14" fill="#F59E0B"/>
+                  <text x="64" y="72" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#FFFFFF">CBE</text>
+                  <text x="93" y="49" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">+</text>
+                </svg>
+                """,
+            "oak" => """
+                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="128" height="128" rx="28" fill="#14532D"/>
+                  <path d="M64 18C84 18 100 33 100 53C100 78 79 95 64 106C49 95 28 78 28 53C28 33 44 18 64 18Z" fill="#22C55E"/>
+                  <path d="M64 34C76 34 86 44 86 56C86 72 73 84 64 91C55 84 42 72 42 56C42 44 52 34 64 34Z" fill="#DCFCE7"/>
+                  <path d="M59 55H69V92H59V55Z" fill="#14532D"/>
+                  <path d="M64 62L82 49L87 56L64 74V62Z" fill="#14532D"/>
+                  <path d="M64 62L46 49L41 56L64 74V62Z" fill="#14532D"/>
+                </svg>
+                """,
+            _ => """
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="SeriousTech">
+                  <rect width="96" height="96" rx="22" fill="#0f172a"/>
+                  <path d="M25 60c0-16 10-29 25-29 11 0 20 5 24 14" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M28 61c7 11 20 15 32 10 8-3 13-9 16-16" fill="none" stroke="#22c55e" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M34 43c5-9 19-12 28-4 5 4 7 10 6 16" fill="none" stroke="#f59e0b" stroke-width="7" stroke-linecap="round"/>
+                  <circle cx="48" cy="52" r="9" fill="#ffffff"/>
+                  <circle cx="48" cy="52" r="4" fill="#1d4ed8"/>
+                </svg>
+                """
+        };
     }
 }
