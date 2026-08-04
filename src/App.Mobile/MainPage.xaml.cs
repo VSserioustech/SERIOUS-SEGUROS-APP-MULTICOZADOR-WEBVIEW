@@ -456,19 +456,6 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                 patchTenantLogo();
                 window.setTimeout(patchTenantLogo, 250);
                 window.setTimeout(patchTenantLogo, 1000);
-                window.setTimeout(patchTenantLogo, 2500);
-
-                if (!window.__seriousMobileTenantLogoInteractionPatch) {
-                    window.__seriousMobileTenantLogoInteractionPatch = true;
-                    var scheduleTenantLogoPatch = function () {
-                        window.clearTimeout(window.__seriousMobileTenantLogoTimer);
-                        window.__seriousMobileTenantLogoTimer = window.setTimeout(patchTenantLogo, 180);
-                    };
-
-                    document.addEventListener('click', scheduleTenantLogoPatch, true);
-                    document.addEventListener('touchend', scheduleTenantLogoPatch, true);
-                    document.addEventListener('keyup', scheduleTenantLogoPatch, true);
-                }
 
                 return true;
             })();
