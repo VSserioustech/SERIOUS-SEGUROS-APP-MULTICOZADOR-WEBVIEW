@@ -389,10 +389,18 @@ public partial class MainPage : ContentPage, ISystemBarsPage
             (function () {
                 function pulseResponsiveLayout() {
                     window.dispatchEvent(new Event('resize'));
+                    window.dispatchEvent(new UIEvent('resize', { view: window }));
                     window.dispatchEvent(new Event('orientationchange'));
+
+                    if (window.visualViewport) {
+                        window.visualViewport.dispatchEvent(new Event('resize'));
+                    }
 
                     window.requestAnimationFrame(function () {
                         window.dispatchEvent(new Event('resize'));
+                        if (window.visualViewport) {
+                            window.visualViewport.dispatchEvent(new Event('resize'));
+                        }
                     });
                 }
 
@@ -409,17 +417,17 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                             window.clearInterval(window.__seriousMobileResponsivePulseInterval);
                             window.__seriousMobileResponsivePulseInterval = null;
                         }
-                    }, 500);
+                    }, 350);
                 }
 
                 function scheduleResponsivePulse() {
                     window.clearTimeout(window.__seriousMobileResponsivePulseTimer);
                     window.__seriousMobileResponsivePulseTimer = window.setTimeout(function () {
-                        startResponsivePulseWindow(8000);
+                        startResponsivePulseWindow(3500);
                     }, 120);
                 }
 
-                startResponsivePulseWindow(10000);
+                startResponsivePulseWindow(4500);
 
                 if (!window.__seriousMobileResponsivePulseInstalled) {
                     window.__seriousMobileResponsivePulseInstalled = true;
@@ -427,6 +435,24 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                     document.addEventListener('click', scheduleResponsivePulse, { capture: true, passive: true });
                     document.addEventListener('touchend', scheduleResponsivePulse, { capture: true, passive: true });
                     document.addEventListener('keyup', scheduleResponsivePulse, true);
+
+                    if (window.MutationObserver) {
+                        window.__seriousMobileResponsiveMutationObserver = new MutationObserver(function () {
+                            scheduleResponsivePulse();
+                        });
+
+                        window.__seriousMobileResponsiveMutationObserver.observe(document.body || document.documentElement, {
+                            childList: true,
+                            subtree: true
+                        });
+
+                        window.setTimeout(function () {
+                            if (window.__seriousMobileResponsiveMutationObserver) {
+                                window.__seriousMobileResponsiveMutationObserver.disconnect();
+                                window.__seriousMobileResponsiveMutationObserver = null;
+                            }
+                        }, 18000);
+                    }
                 }
 
                 return true;
