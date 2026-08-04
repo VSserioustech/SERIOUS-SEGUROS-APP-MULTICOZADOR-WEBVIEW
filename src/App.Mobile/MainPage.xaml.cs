@@ -396,18 +396,30 @@ public partial class MainPage : ContentPage, ISystemBarsPage
                     });
                 }
 
+                function startResponsivePulseWindow(durationMs) {
+                    var startedAt = Date.now();
+
+                    window.clearInterval(window.__seriousMobileResponsivePulseInterval);
+                    pulseResponsiveLayout();
+
+                    window.__seriousMobileResponsivePulseInterval = window.setInterval(function () {
+                        pulseResponsiveLayout();
+
+                        if (Date.now() - startedAt >= durationMs) {
+                            window.clearInterval(window.__seriousMobileResponsivePulseInterval);
+                            window.__seriousMobileResponsivePulseInterval = null;
+                        }
+                    }, 500);
+                }
+
                 function scheduleResponsivePulse() {
                     window.clearTimeout(window.__seriousMobileResponsivePulseTimer);
                     window.__seriousMobileResponsivePulseTimer = window.setTimeout(function () {
-                        pulseResponsiveLayout();
-                        window.setTimeout(pulseResponsiveLayout, 250);
-                        window.setTimeout(pulseResponsiveLayout, 750);
+                        startResponsivePulseWindow(8000);
                     }, 120);
                 }
 
-                pulseResponsiveLayout();
-                window.setTimeout(pulseResponsiveLayout, 250);
-                window.setTimeout(pulseResponsiveLayout, 1000);
+                startResponsivePulseWindow(10000);
 
                 if (!window.__seriousMobileResponsivePulseInstalled) {
                     window.__seriousMobileResponsivePulseInstalled = true;
