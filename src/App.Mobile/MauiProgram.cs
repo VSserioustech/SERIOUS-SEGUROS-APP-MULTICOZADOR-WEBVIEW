@@ -38,6 +38,7 @@ public static class MauiProgram
         builder.Services.AddInfrastructure();
         builder.Services.AddSingleton<IWebViewCookieProvider, WebViewCookieProvider>();
         builder.Services.AddSingleton<IPortalFileDownloader, PortalFileDownloader>();
+        builder.Services.AddSingleton<IPortalCredentialStore, PortalCredentialStore>();
 #if ANDROID
         builder.Services.AddSingleton<ILauncherBrandService, Platforms.Android.LauncherBrandService>();
 #else

@@ -7,10 +7,14 @@ public sealed class WhitelabelState : IWhitelabelState
     private const string PreferenceKey = "Whitelabel.Current.v2";
     private const string TenantSessionPreferenceKey = "Whitelabel.TenantSession.v1";
     private const string TenantProfilePreferenceKey = "Whitelabel.TenantProfile.v1";
+    private readonly IPortalCredentialStore _credentialStore;
     private readonly ILauncherBrandService _launcherBrandService;
 
-    public WhitelabelState(ILauncherBrandService launcherBrandService)
+    public WhitelabelState(
+        IPortalCredentialStore credentialStore,
+        ILauncherBrandService launcherBrandService)
     {
+        _credentialStore = credentialStore;
         _launcherBrandService = launcherBrandService;
     }
 
@@ -74,6 +78,7 @@ public sealed class WhitelabelState : IWhitelabelState
         TenantProfile = null;
         Preferences.Default.Remove(TenantSessionPreferenceKey);
         Preferences.Default.Remove(TenantProfilePreferenceKey);
+        _credentialStore.Clear();
     }
 
     private void LoadTenantFromPreferences()

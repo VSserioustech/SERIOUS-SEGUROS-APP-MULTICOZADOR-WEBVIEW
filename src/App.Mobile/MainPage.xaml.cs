@@ -3,6 +3,7 @@ using App.Application.Interfaces;
 using App.Application.Models;
 using App.Mobile.Services;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace App.Mobile;
 
@@ -11,6 +12,7 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
     private static readonly TimeSpan MinimumResumeNotificationInterval = TimeSpan.FromMilliseconds(750);
     private readonly IWebPortalNavigationPolicy _navigationPolicy;
     private readonly IPortalDownloadPolicy _downloadPolicy;
+    private readonly IPortalCredentialStore _credentialStore;
     private readonly IPortalFileDownloader _fileDownloader;
     private readonly IWhitelabelState _whitelabelState;
     private readonly WhitelabelConfig? _whitelabelConfig;
@@ -21,6 +23,7 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         IOptions<WebPortalOptions> options,
         IWebPortalNavigationPolicy navigationPolicy,
         IPortalDownloadPolicy downloadPolicy,
+        IPortalCredentialStore credentialStore,
         IPortalFileDownloader fileDownloader,
         IWhitelabelState whitelabelState)
     {
@@ -28,6 +31,7 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
 
         _navigationPolicy = navigationPolicy;
         _downloadPolicy = downloadPolicy;
+        _credentialStore = credentialStore;
         _fileDownloader = fileDownloader;
         _whitelabelState = whitelabelState;
         _whitelabelConfig = _whitelabelState.Current;
@@ -92,6 +96,7 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
             errorOverlay.IsVisible = false;
             await InstallPortalVisualFixesAsync();
             await InstallPortalResponsivePulseAsync();
+            await InstallPortalAutoLoginAsync();
 #if ANDROID
             await InstallAndroidBlobCaptureAsync();
 #endif
@@ -572,6 +577,145 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         catch
         {
             // The WebView can reject JavaScript while Android is resuming or the portal is reconnecting.
+        }
+    }
+
+    private async Task InstallPortalAutoLoginAsync()
+    {
+        var credentials = await _credentialStore.GetAsync(_whitelabelState.TenantSession);
+        if (credentials is null)
+        {
+            return;
+        }
+
+        var email = JsonSerializer.Serialize(credentials.Email);
+        var password = JsonSerializer.Serialize(credentials.Password);
+        var script = $$"""
+            (function () {
+                if (window.__seriousMobilePortalLoginSubmitted) {
+                    return true;
+                }
+
+                var email = {{email}};
+                var password = {{password}};
+
+                function isVisible(element) {
+                    if (!element) {
+                        return false;
+                    }
+
+                    var box = element.getBoundingClientRect();
+                    var style = window.getComputedStyle(element);
+                    return box.width > 0
+                        && box.height > 0
+                        && style.visibility !== 'hidden'
+                        && style.display !== 'none';
+                }
+
+                function findEmailInput() {
+                    var selectors = [
+                        'input[type="email"]',
+                        'input[autocomplete="username"]',
+                        'input[name*="email" i]',
+                        'input[name*="correo" i]',
+                        'input[id*="email" i]',
+                        'input[id*="correo" i]',
+                        'input[placeholder*="correo" i]',
+                        'input[placeholder*="email" i]',
+                        'input[type="text"]'
+                    ];
+
+                    for (var index = 0; index < selectors.length; index++) {
+                        var input = Array.prototype.find.call(
+                            document.querySelectorAll(selectors[index]),
+                            isVisible);
+
+                        if (input) {
+                            return input;
+                        }
+                    }
+
+                    return null;
+                }
+
+                function findSubmitButton(passwordInput) {
+                    var form = passwordInput && passwordInput.closest('form');
+                    var candidates = form
+                        ? form.querySelectorAll('button, input[type="submit"], [role="button"]')
+                        : document.querySelectorAll('button, input[type="submit"], [role="button"]');
+
+                    return Array.prototype.find.call(candidates, function (button) {
+                        var text = (button.innerText || button.value || button.textContent || '').trim().toLowerCase();
+                        return isVisible(button)
+                            && !button.disabled
+                            && (text.indexOf('entrar') >= 0
+                                || text.indexOf('ingresar') >= 0
+                                || text.indexOf('login') >= 0
+                                || button.type === 'submit');
+                    });
+                }
+
+                function setInputValue(input, value) {
+                    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    setter.call(input, value);
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                function trySubmitLogin() {
+                    var passwordInput = Array.prototype.find.call(
+                        document.querySelectorAll('input[type="password"]'),
+                        isVisible);
+                    var emailInput = findEmailInput();
+
+                    if (!emailInput || !passwordInput) {
+                        return false;
+                    }
+
+                    setInputValue(emailInput, email);
+                    setInputValue(passwordInput, password);
+
+                    window.__seriousMobilePortalLoginSubmitted = true;
+
+                    var submitButton = findSubmitButton(passwordInput);
+                    if (submitButton) {
+                        submitButton.click();
+                        return true;
+                    }
+
+                    var form = passwordInput.closest('form') || emailInput.closest('form');
+                    if (form && typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                        return true;
+                    }
+
+                    if (form) {
+                        form.submit();
+                        return true;
+                    }
+
+                    window.__seriousMobilePortalLoginSubmitted = false;
+                    return false;
+                }
+
+                if (trySubmitLogin()) {
+                    return true;
+                }
+
+                window.clearTimeout(window.__seriousMobilePortalLoginTimer);
+                window.__seriousMobilePortalLoginTimer = window.setTimeout(trySubmitLogin, 650);
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The portal can reject script evaluation while the login view is still rendering.
         }
     }
 

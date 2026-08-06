@@ -5,16 +5,19 @@ namespace App.Mobile;
 public partial class TenantLoginPage : ContentPage, ISystemBarsPage
 {
     private readonly IWhitelabelClient _client;
+    private readonly IPortalCredentialStore _credentialStore;
     private readonly IWhitelabelState _state;
     private readonly IServiceProvider _serviceProvider;
 
     public TenantLoginPage(
         IWhitelabelClient client,
+        IPortalCredentialStore credentialStore,
         IWhitelabelState state,
         IServiceProvider serviceProvider)
     {
         InitializeComponent();
         _client = client;
+        _credentialStore = credentialStore;
         _state = state;
         _serviceProvider = serviceProvider;
 
@@ -65,6 +68,7 @@ public partial class TenantLoginPage : ContentPage, ISystemBarsPage
             SetBusy(true, "Leyendo perfil white label...");
             var profile = await _client.GetWhiteLabelProfileAsync(session);
             await _state.SaveTenantAsync(session, profile);
+            await _credentialStore.SaveAsync(tenantCode, email, password);
 
             var wizardPage = _serviceProvider.GetRequiredService<WhitelabelWizardPage>();
             Microsoft.Maui.Controls.Application.Current?.Windows[0].Page = wizardPage;
