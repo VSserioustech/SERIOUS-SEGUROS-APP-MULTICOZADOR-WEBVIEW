@@ -598,6 +598,8 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
 
                 var email = {{email}};
                 var password = {{password}};
+                var maxLoginAttemptsMs = 15000;
+                var startedAt = Date.now();
 
                 function isVisible(element) {
                     if (!element) {
@@ -612,30 +614,37 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
                         && style.display !== 'none';
                 }
 
+                function valueContains(input, values) {
+                    var source = [
+                        input.type,
+                        input.name,
+                        input.id,
+                        input.autocomplete,
+                        input.placeholder,
+                        input.getAttribute('aria-label')
+                    ].join(' ').toLowerCase();
+
+                    return values.some(function (value) {
+                        return source.indexOf(value) >= 0;
+                    });
+                }
+
                 function findEmailInput() {
-                    var selectors = [
-                        'input[type="email"]',
-                        'input[autocomplete="username"]',
-                        'input[name*="email" i]',
-                        'input[name*="correo" i]',
-                        'input[id*="email" i]',
-                        'input[id*="correo" i]',
-                        'input[placeholder*="correo" i]',
-                        'input[placeholder*="email" i]',
-                        'input[type="text"]'
-                    ];
+                    var inputs = Array.prototype.filter.call(
+                        document.querySelectorAll('input'),
+                        function (input) {
+                            return isVisible(input)
+                                && input.type !== 'password'
+                                && input.type !== 'hidden'
+                                && input.type !== 'checkbox'
+                                && input.type !== 'radio';
+                        });
 
-                    for (var index = 0; index < selectors.length; index++) {
-                        var input = Array.prototype.find.call(
-                            document.querySelectorAll(selectors[index]),
-                            isVisible);
-
-                        if (input) {
-                            return input;
-                        }
-                    }
-
-                    return null;
+                    return inputs.find(function (input) {
+                        return valueContains(input, ['email', 'correo', 'user', 'usuario', 'login', 'username']);
+                    }) || inputs.find(function (input) {
+                        return input.type === 'email' || input.type === 'text';
+                    }) || null;
                 }
 
                 function findSubmitButton(passwordInput) {
@@ -650,7 +659,10 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
                             && !button.disabled
                             && (text.indexOf('entrar') >= 0
                                 || text.indexOf('ingresar') >= 0
+                                || text.indexOf('iniciar') >= 0
+                                || text.indexOf('acceder') >= 0
                                 || text.indexOf('login') >= 0
+                                || text.indexOf('sign in') >= 0
                                 || button.type === 'submit');
                     });
                 }
@@ -660,9 +672,16 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
                     setter.call(input, value);
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
+                    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+                    input.dispatchEvent(new Event('blur', { bubbles: true }));
                 }
 
                 function trySubmitLogin() {
+                    if (Date.now() - startedAt > maxLoginAttemptsMs) {
+                        stopAutoLoginWatch();
+                        return false;
+                    }
+
                     var passwordInput = Array.prototype.find.call(
                         document.querySelectorAll('input[type="password"]'),
                         isVisible);
@@ -679,17 +698,20 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
 
                     var submitButton = findSubmitButton(passwordInput);
                     if (submitButton) {
+                        stopAutoLoginWatch();
                         submitButton.click();
                         return true;
                     }
 
                     var form = passwordInput.closest('form') || emailInput.closest('form');
                     if (form && typeof form.requestSubmit === 'function') {
+                        stopAutoLoginWatch();
                         form.requestSubmit();
                         return true;
                     }
 
                     if (form) {
+                        stopAutoLoginWatch();
                         form.submit();
                         return true;
                     }
@@ -698,12 +720,43 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
                     return false;
                 }
 
+                function stopAutoLoginWatch() {
+                    window.clearInterval(window.__seriousMobilePortalLoginInterval);
+                    window.clearTimeout(window.__seriousMobilePortalLoginTimer);
+
+                    if (window.__seriousMobilePortalLoginObserver) {
+                        window.__seriousMobilePortalLoginObserver.disconnect();
+                        window.__seriousMobilePortalLoginObserver = null;
+                    }
+                }
+
                 if (trySubmitLogin()) {
                     return true;
                 }
 
+                window.clearInterval(window.__seriousMobilePortalLoginInterval);
                 window.clearTimeout(window.__seriousMobilePortalLoginTimer);
-                window.__seriousMobilePortalLoginTimer = window.setTimeout(trySubmitLogin, 650);
+
+                window.__seriousMobilePortalLoginInterval = window.setInterval(trySubmitLogin, 500);
+                window.__seriousMobilePortalLoginTimer = window.setTimeout(stopAutoLoginWatch, maxLoginAttemptsMs + 1000);
+
+                if (window.MutationObserver) {
+                    if (window.__seriousMobilePortalLoginObserver) {
+                        window.__seriousMobilePortalLoginObserver.disconnect();
+                    }
+
+                    window.__seriousMobilePortalLoginObserver = new MutationObserver(function () {
+                        window.clearTimeout(window.__seriousMobilePortalLoginMutationTimer);
+                        window.__seriousMobilePortalLoginMutationTimer = window.setTimeout(trySubmitLogin, 150);
+                    });
+
+                    window.__seriousMobilePortalLoginObserver.observe(document.body || document.documentElement, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['class', 'style', 'disabled']
+                    });
+                }
 
                 return true;
             })();
