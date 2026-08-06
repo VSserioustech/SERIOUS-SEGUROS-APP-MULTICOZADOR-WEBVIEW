@@ -4,7 +4,7 @@ public sealed class WhitelabelOptions
 {
     public const string SectionName = "Whitelabel";
 
-    public string ApiBaseUrl { get; set; } = "http://10.0.2.2:5144";
+    public string ApiBaseUrl { get; set; } = "https://movil-qa.seriouseguros.com.mx";
 
     public string DefaultTenantId { get; set; } = "serioustech";
 

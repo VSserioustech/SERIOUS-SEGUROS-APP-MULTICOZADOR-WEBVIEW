@@ -8,3 +8,4 @@ TestResults/
 *.pfx
 *.env
 appsettings.Local.json
+.codex_video_frames/

@@ -33,7 +33,6 @@ public static class MauiProgram
             builder.Configuration.GetSection(WebPortalOptions.SectionName));
         builder.Services.Configure<WhitelabelOptions>(
             builder.Configuration.GetSection(WhitelabelOptions.SectionName));
-        builder.Services.AddMauiBlazorWebView();
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure();
         builder.Services.AddSingleton<IWebViewCookieProvider, WebViewCookieProvider>();
@@ -63,7 +62,6 @@ public static class MauiProgram
         builder.Services.AddTransient<WhitelabelWizardPage>();
 
 #if DEBUG
-        builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
 #endif
 

@@ -211,28 +211,7 @@ public sealed class PortalDownloadListener(global::Android.Webkit.WebView webVie
                         return 'sin-banco';
                     }
 
-                    var companyMap = {
-                        BAN: 'banorte',
-                        ZRH: 'zurich',
-                        ZURICH: 'zurich',
-                        AFI: 'afirme',
-                        GNP: 'gnp',
-                        GS: 'general-seguros',
-                        GENERAL: 'general-seguros',
-                        AXA: 'axa',
-                        HDI: 'hdi',
-                        ANA: 'ana',
-                        CHUBB: 'chubb',
-                        MAPFRE: 'mapfre',
-                        QUALITAS: 'qualitas',
-                        SURA: 'sura',
-                        ATLAS: 'atlas',
-                        POTOSI: 'el-potosi',
-                        ELPOTOSI: 'el-potosi',
-                        INBURSA: 'inbursa'
-                    };
-
-                    return companyMap[normalized] || sanitizeNamePart(normalized || 'sin-banco').toLowerCase();
+                    return sanitizeNamePart(normalized || 'sin-banco').toLowerCase();
                 }
 
 
