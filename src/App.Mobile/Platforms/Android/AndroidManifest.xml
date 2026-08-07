@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:allowBackup="false"
                  android:usesCleartextTraffic="false"
-                 android:icon="@mipmap/appicon"
-                 android:roundIcon="@mipmap/appicon_round"
+                 android:icon="@drawable/launcher_serious"
+                 android:roundIcon="@drawable/launcher_serious"
                  android:label="Serious"
                  android:supportsRtl="true">
         <activity-alias android:name=".LauncherDefault"
@@ -11,8 +11,8 @@
                         android:enabled="true"
                         android:exported="true"
                         android:label="Serious"
-                        android:icon="@mipmap/appicon"
-                        android:roundIcon="@mipmap/appicon_round">
+                        android:icon="@drawable/launcher_serious"
+                        android:roundIcon="@drawable/launcher_serious">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
