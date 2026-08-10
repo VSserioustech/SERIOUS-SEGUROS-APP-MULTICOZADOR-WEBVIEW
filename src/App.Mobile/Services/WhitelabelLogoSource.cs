@@ -55,10 +55,10 @@ public static class WhitelabelLogoSource
     private static string GetFallbackLogoAsset(string launcherIconKey) =>
         launcherIconKey.Trim().ToLowerInvariant() switch
         {
-            "ali" => "ali_mark.svg",
-            "cbe" => "cbe_mark.svg",
-            "oak" => "oak_mark.svg",
-            _ => "serioustech_mark.svg"
+            "ali" => "whitelabel_ali.png",
+            "cbe" => "whitelabel_cbe.png",
+            "oak" => "whitelabel_oak.png",
+            _ => "whitelabel_serious.png"
         };
 
     private static bool IsSvgLogo(Uri logoUri) =>
