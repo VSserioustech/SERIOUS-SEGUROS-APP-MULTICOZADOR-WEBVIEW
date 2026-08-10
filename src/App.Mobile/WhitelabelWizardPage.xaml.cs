@@ -90,7 +90,7 @@ public partial class WhitelabelWizardPage : ContentPage, ISystemBarsPage
         }
     }
 
-    private void OnCompanySelected(object? sender, EventArgs e)
+    private async void OnCompanySelected(object? sender, EventArgs e)
     {
         var company = companiesPicker.SelectedItem as CompanyViewModel;
         enterButton.IsEnabled = company is not null;
@@ -101,13 +101,20 @@ public partial class WhitelabelWizardPage : ContentPage, ISystemBarsPage
             return;
         }
 
-        companyLogoImage.Source = company.LogoAsset;
+        companyLogoImage.Source = WhitelabelLogoSource.FromFallbackAsset(company.Config.LauncherIconKey);
         companyNameLabel.Text = company.DisplayName;
         companyUrlLabel.Text = company.Config.Url;
         companyStatusLabel.Text = company.IsConfigured
             ? "White label configurado"
             : "Sin configuración: se usará identidad default";
         enterButton.BackgroundColor = Color.FromArgb(NormalizeHexColor(company.Config.PrimaryColor, "#175CD3"));
+        var logoSource = await WhitelabelLogoSource.CreateAsync(
+            company.Config.LogoUrl,
+            company.Config.LauncherIconKey);
+        if (companiesPicker.SelectedItem is CompanyViewModel current && current.Config.EmpresaId == company.Config.EmpresaId)
+        {
+            companyLogoImage.Source = logoSource;
+        }
     }
 
     private async void OnEnterClicked(object? sender, EventArgs e)
@@ -160,7 +167,6 @@ public partial class WhitelabelWizardPage : ContentPage, ISystemBarsPage
     private sealed record CompanyViewModel(
         string DisplayName,
         bool IsConfigured,
-        string LogoAsset,
         WhitelabelConfig Config)
     {
         public static CompanyViewModel From(TenantCompanyProfile company, WhitelabelConfig config) =>
@@ -169,16 +175,6 @@ public partial class WhitelabelWizardPage : ContentPage, ISystemBarsPage
                     ? config.NombreAplicacion
                     : $"{company.Name} (default)",
                 IsConfigured: company.WhiteLabel.Configured,
-                LogoAsset: GetLogoAsset(config.LauncherIconKey),
                 Config: config);
-
-        private static string GetLogoAsset(string launcherIconKey) =>
-            launcherIconKey.Trim().ToLowerInvariant() switch
-            {
-                "ali" => "ali_mark.svg",
-                "cbe" => "cbe_mark.svg",
-                "oak" => "oak_mark.svg",
-                _ => "serioustech_mark.svg"
-            };
     }
 }

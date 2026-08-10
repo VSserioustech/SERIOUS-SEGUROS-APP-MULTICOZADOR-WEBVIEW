@@ -204,11 +204,21 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         }
 
         titleLabel.Text = config.NombreAplicacion;
-        brandImage.Source = GetLogoAsset(config.LauncherIconKey);
+        brandImage.Source = WhitelabelLogoSource.FromFallbackAsset(config.LauncherIconKey);
+        _ = ApplyBrandLogoAsync(config);
         var primaryColor = NormalizeHexColor(config.PrimaryColor, "#0F172A");
         toolbarGrid.BackgroundColor = Color.FromArgb(primaryColor);
         environmentLabel.Text = $"{config.EmpresaId.ToUpperInvariant()} · Portal seguro";
         ApplySystemBars();
+    }
+
+    private async Task ApplyBrandLogoAsync(WhitelabelConfig config)
+    {
+        var logoSource = await WhitelabelLogoSource.CreateAsync(config.LogoUrl, config.LauncherIconKey);
+        if (_whitelabelConfig?.EmpresaId == config.EmpresaId)
+        {
+            brandImage.Source = logoSource;
+        }
     }
 
     public void ApplySystemBars()
@@ -241,15 +251,6 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         var candidate = value.Trim();
         return candidate.StartsWith('#') ? candidate : "#" + candidate;
     }
-
-    private static string GetLogoAsset(string launcherIconKey) =>
-        launcherIconKey.Trim().ToLowerInvariant() switch
-        {
-            "ali" => "ali_mark.svg",
-            "cbe" => "cbe_mark.svg",
-            "oak" => "oak_mark.svg",
-            _ => "serioustech_mark.svg"
-        };
 
     private static void SetBrowserButtonState(ImageButton button, bool isEnabled)
     {
