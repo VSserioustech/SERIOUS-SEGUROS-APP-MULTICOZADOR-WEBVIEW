@@ -2,6 +2,7 @@ using System.Reflection;
 using App.Application;
 using App.Application.Configuration;
 using App.Infrastructure;
+using App.Mobile.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +15,12 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if ANDROID
+                handlers.AddHandler<WebView, Platforms.Android.CustomWebViewHandler>();
+#endif
+            })
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -24,13 +31,37 @@ public static class MauiProgram
 
         builder.Services.Configure<WebPortalOptions>(
             builder.Configuration.GetSection(WebPortalOptions.SectionName));
-        builder.Services.AddMauiBlazorWebView();
+        builder.Services.Configure<WhitelabelOptions>(
+            builder.Configuration.GetSection(WhitelabelOptions.SectionName));
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure();
-        builder.Services.AddSingleton<MainPage>();
+        builder.Services.AddSingleton<IWebViewCookieProvider, WebViewCookieProvider>();
+        builder.Services.AddSingleton<IPortalFileDownloader, PortalFileDownloader>();
+        builder.Services.AddSingleton<IPortalCredentialStore, PortalCredentialStore>();
+#if ANDROID
+        builder.Services.AddSingleton<ILauncherBrandService, Platforms.Android.LauncherBrandService>();
+#else
+        builder.Services.AddSingleton<ILauncherBrandService, LauncherBrandService>();
+#endif
+        builder.Services.AddSingleton<IWhitelabelState, WhitelabelState>();
+        builder.Services.AddSingleton<IWhitelabelClient>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<WhitelabelOptions>>().Value;
+            var httpClient = new HttpClient
+            {
+                BaseAddress = new Uri(options.ApiBaseUrl.TrimEnd('/') + "/"),
+                Timeout = TimeSpan.FromSeconds(8)
+            };
+
+            return new WhitelabelClient(
+                httpClient,
+                serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<WhitelabelOptions>>());
+        });
+        builder.Services.AddTransient<MainPage>();
+        builder.Services.AddTransient<TenantLoginPage>();
+        builder.Services.AddTransient<WhitelabelWizardPage>();
 
 #if DEBUG
-        builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
 #endif
 

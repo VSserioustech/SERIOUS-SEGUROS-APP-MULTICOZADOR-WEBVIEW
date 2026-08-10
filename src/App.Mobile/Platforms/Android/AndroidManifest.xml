@@ -2,9 +2,84 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:allowBackup="false"
                  android:usesCleartextTraffic="false"
-                 android:icon="@mipmap/appicon"
-                 android:roundIcon="@mipmap/appicon_round"
-                 android:supportsRtl="true"></application>
+                 android:icon="@drawable/launcher_serious"
+                 android:roundIcon="@drawable/launcher_serious"
+                 android:label="Serious"
+                 android:supportsRtl="true">
+        <activity-alias android:name=".LauncherDefault"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="true"
+                        android:exported="true"
+                        android:label="Serious"
+                        android:icon="@drawable/launcher_serious"
+                        android:roundIcon="@drawable/launcher_serious">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherSerious"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="Serious"
+                        android:icon="@drawable/launcher_serious"
+                        android:roundIcon="@drawable/launcher_serious">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherAli"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="Ali"
+                        android:icon="@drawable/launcher_ali"
+                        android:roundIcon="@drawable/launcher_ali">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherCbe"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="Cbe"
+                        android:icon="@drawable/launcher_cbe"
+                        android:roundIcon="@drawable/launcher_cbe">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".LauncherOak"
+                        android:targetActivity=".MainActivity"
+                        android:enabled="false"
+                        android:exported="true"
+                        android:label="Oak"
+                        android:icon="@drawable/launcher_oak"
+                        android:roundIcon="@drawable/launcher_oak">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <provider android:name="androidx.core.content.FileProvider"
+                  android:authorities="${applicationId}.fileprovider"
+                  android:exported="false"
+                  android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                       android:resource="@xml/file_paths" />
+        </provider>
+    </application>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

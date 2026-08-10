@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="App.Mobile.WhitelabelWizardPage"
+             BackgroundColor="#F6F8FB"
+             SafeAreaEdges="Container">
+
+    <ScrollView>
+        <Grid RowDefinitions="Auto,Auto,Auto"
+              Padding="24">
+            <VerticalStackLayout Grid.Row="0"
+                                 Spacing="8"
+                                 Margin="0,12,0,24">
+                <Image Source="serioustech_mark.svg"
+                       HeightRequest="64"
+                       WidthRequest="64"
+                       HorizontalOptions="Start" />
+                <Label Text="Selecciona empresa"
+                       TextColor="#0F172A"
+                       FontAttributes="Bold"
+                       FontSize="28" />
+                <Label x:Name="tenantLabel"
+                       Text="Elige la empresa configurada para este tenant."
+                       TextColor="#64748B"
+                       FontSize="15" />
+            </VerticalStackLayout>
+
+            <Border Grid.Row="1"
+                    Padding="22"
+                    BackgroundColor="White"
+                    Stroke="#E2E8F0"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 24">
+                <VerticalStackLayout Spacing="16">
+                    <VerticalStackLayout Spacing="7">
+                        <Label Text="EMPRESA"
+                               TextColor="#475569"
+                               FontAttributes="Bold"
+                               FontSize="12" />
+                        <Picker x:Name="companiesPicker"
+                                Title="Selecciona una empresa"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                TextColor="#0F172A"
+                                TitleColor="#94A3B8"
+                                BackgroundColor="#EEF3F9"
+                                SelectedIndexChanged="OnCompanySelected" />
+                    </VerticalStackLayout>
+
+                    <Border x:Name="previewCard"
+                            IsVisible="False"
+                            Padding="16"
+                            Stroke="#E2E8F0"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 18"
+                            BackgroundColor="#F8FAFC">
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="14">
+                            <Image x:Name="companyLogoImage"
+                                   HeightRequest="46"
+                                   WidthRequest="46"
+                                   Aspect="AspectFit" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="2"
+                                                 VerticalOptions="Center">
+                                <Label x:Name="companyNameLabel"
+                                       TextColor="#172554"
+                                       FontAttributes="Bold"
+                                       FontSize="17" />
+                                <Label x:Name="companyUrlLabel"
+                                       TextColor="#64748B"
+                                       FontSize="12"
+                                       LineBreakMode="TailTruncation" />
+                                <Label x:Name="companyStatusLabel"
+                                       TextColor="#0F766E"
+                                       FontSize="12" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+
+                    <Button x:Name="enterButton"
+                            Text="Ingresar"
+                            IsEnabled="False"
+                            Padding="18,14"
+                            BackgroundColor="#175CD3"
+                            TextColor="White"
+                            FontAttributes="Bold"
+                            CornerRadius="18"
+                            Clicked="OnEnterClicked" />
+
+                    <Button Text="Salir de tenant"
+                            Padding="18,12"
+                            BackgroundColor="#FEE2E2"
+                            TextColor="#991B1B"
+                            FontAttributes="Bold"
+                            CornerRadius="18"
+                            Clicked="OnExitTenantClicked" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Grid.Row="2"
+                   x:Name="statusLabel"
+                   TextColor="#64748B"
+                   FontSize="12"
+                   HorizontalTextAlignment="Center"
+                   Margin="0,16,0,0" />
+        </Grid>
+    </ScrollView>
+</ContentPage>

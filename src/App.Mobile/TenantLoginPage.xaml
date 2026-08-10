@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="App.Mobile.TenantLoginPage"
+             BackgroundColor="#F6F8FB"
+             SafeAreaEdges="Container">
+
+    <ScrollView>
+        <Grid Padding="24"
+              RowDefinitions="Auto,Auto,*">
+            <VerticalStackLayout Grid.Row="0"
+                                 Spacing="8"
+                                 Margin="0,12,0,26">
+                <Image Source="serioustech_mark.svg"
+                       HeightRequest="64"
+                       WidthRequest="64"
+                       HorizontalOptions="Start" />
+                <Label Text="Configuración de tenant"
+                       TextColor="#0F172A"
+                       FontAttributes="Bold"
+                       FontSize="28" />
+                <Label Text="Ingresa el código de tenant y tus credenciales para cargar las empresas disponibles."
+                       TextColor="#64748B"
+                       FontSize="15" />
+            </VerticalStackLayout>
+
+            <Border Grid.Row="1"
+                    Padding="22"
+                    BackgroundColor="White"
+                    Stroke="#E2E8F0"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 24">
+                <VerticalStackLayout Spacing="16">
+                    <VerticalStackLayout Spacing="7">
+                        <Label Text="TENANT CODE"
+                               TextColor="#475569"
+                               FontAttributes="Bold"
+                               FontSize="12" />
+                        <Entry x:Name="tenantCodeEntry"
+                               Placeholder="8657"
+                               Keyboard="Numeric"
+                               ReturnType="Next"
+                               TextColor="#0F172A"
+                               PlaceholderColor="#94A3B8"
+                               BackgroundColor="#EEF3F9" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="7">
+                        <Label Text="EMAIL"
+                               TextColor="#475569"
+                               FontAttributes="Bold"
+                               FontSize="12" />
+                        <Entry x:Name="emailEntry"
+                               Placeholder="correo@empresa.com"
+                               Keyboard="Email"
+                               ReturnType="Next"
+                               TextColor="#0F172A"
+                               PlaceholderColor="#94A3B8"
+                               BackgroundColor="#EEF3F9" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="7">
+                        <Label Text="PASSWORD"
+                               TextColor="#475569"
+                               FontAttributes="Bold"
+                               FontSize="12" />
+                        <Entry x:Name="passwordEntry"
+                               Placeholder="Contraseña"
+                               IsPassword="True"
+                               ReturnType="Done"
+                               TextColor="#0F172A"
+                               PlaceholderColor="#94A3B8"
+                               BackgroundColor="#EEF3F9" />
+                    </VerticalStackLayout>
+
+                    <Button x:Name="loginButton"
+                            Text="Ingresar"
+                            Margin="0,8,0,0"
+                            Padding="18,14"
+                            BackgroundColor="#175CD3"
+                            TextColor="White"
+                            FontAttributes="Bold"
+                            CornerRadius="18"
+                            Clicked="OnLoginClicked" />
+
+                    <Button Text="Leer QR"
+                            Padding="18,12"
+                            BackgroundColor="#E0E7FF"
+                            TextColor="#1E3A8A"
+                            FontAttributes="Bold"
+                            CornerRadius="18"
+                            Clicked="OnQrClicked" />
+
+                    <Label x:Name="statusLabel"
+                           Text="La lectura QR queda preparada como POC."
+                           TextColor="#64748B"
+                           FontSize="12"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </ScrollView>
+</ContentPage>

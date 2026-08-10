@@ -1,24 +1,50 @@
 using App.Application.Configuration;
 using App.Application.Interfaces;
 using App.Application.Models;
+using App.Mobile.Services;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace App.Mobile;
 
-public partial class MainPage : ContentPage
+public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAwarePage
 {
+    private static readonly TimeSpan MinimumResumeNotificationInterval = TimeSpan.FromMilliseconds(750);
     private readonly IWebPortalNavigationPolicy _navigationPolicy;
+    private readonly IPortalDownloadPolicy _downloadPolicy;
+    private readonly IPortalCredentialStore _credentialStore;
+    private readonly IPortalFileDownloader _fileDownloader;
+    private readonly IWhitelabelState _whitelabelState;
+    private readonly WhitelabelConfig? _whitelabelConfig;
     private readonly Uri _startUri;
+    private DateTimeOffset _lastResumeNotificationUtc = DateTimeOffset.MinValue;
 
     public MainPage(
         IOptions<WebPortalOptions> options,
-        IWebPortalNavigationPolicy navigationPolicy)
+        IWebPortalNavigationPolicy navigationPolicy,
+        IPortalDownloadPolicy downloadPolicy,
+        IPortalCredentialStore credentialStore,
+        IPortalFileDownloader fileDownloader,
+        IWhitelabelState whitelabelState)
     {
         InitializeComponent();
 
         _navigationPolicy = navigationPolicy;
-        _startUri = CreateStartUri(options.Value.StartUrl);
+        _downloadPolicy = downloadPolicy;
+        _credentialStore = credentialStore;
+        _fileDownloader = fileDownloader;
+        _whitelabelState = whitelabelState;
+        _whitelabelConfig = _whitelabelState.Current;
+        _startUri = CreateStartUri(_whitelabelConfig?.Url ?? options.Value.StartUrl);
+        ApplyWhitelabel(_whitelabelConfig);
+        UpdateBrowserControls();
         portalWebView.Source = _startUri.AbsoluteUri;
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        ApplySystemBars();
     }
 
     private async void OnPortalNavigating(object? sender, WebNavigatingEventArgs e)
@@ -27,6 +53,13 @@ public partial class MainPage : ContentPage
         {
             e.Cancel = true;
             await ShowBlockedNavigationAsync();
+            return;
+        }
+
+        if (_downloadPolicy.IsDownload(destination))
+        {
+            e.Cancel = true;
+            await DownloadPortalFileAsync(destination);
             return;
         }
 
@@ -53,13 +86,20 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private void OnPortalNavigated(object? sender, WebNavigatedEventArgs e)
+    private async void OnPortalNavigated(object? sender, WebNavigatedEventArgs e)
     {
         loadingOverlay.IsVisible = false;
+        UpdateBrowserControls();
 
         if (e.Result == WebNavigationResult.Success)
         {
             errorOverlay.IsVisible = false;
+            await InstallPortalVisualFixesAsync();
+            await InstallPortalResponsivePulseAsync();
+            await InstallPortalAutoLoginAsync();
+#if ANDROID
+            await InstallAndroidBlobCaptureAsync();
+#endif
             return;
         }
 
@@ -68,9 +108,15 @@ public partial class MainPage : ContentPage
 
     private void OnBackClicked(object? sender, EventArgs e)
     {
-        if (portalWebView.CanGoBack)
+        NavigateBackInBrowser();
+    }
+
+    private void OnForwardClicked(object? sender, EventArgs e)
+    {
+        if (portalWebView.CanGoForward)
         {
-            portalWebView.GoBack();
+            portalWebView.GoForward();
+            UpdateBrowserControls();
         }
     }
 
@@ -83,6 +129,24 @@ public partial class MainPage : ContentPage
     {
         ShowLoading();
         portalWebView.Reload();
+    }
+
+    private async void OnChangeCompanyClicked(object? sender, EventArgs e)
+    {
+        var confirmed = await DisplayAlertAsync(
+            "Cambiar empresa",
+            "Se cerrará la configuración actual y volverás al selector de empresa.",
+            "Cambiar",
+            "Cancelar");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _whitelabelState.ClearSelection();
+        Microsoft.Maui.Controls.Application.Current?.Windows[0].Page =
+            Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services.GetRequiredService<WhitelabelWizardPage>();
     }
 
     private void OnRetryClicked(object? sender, EventArgs e)
@@ -99,8 +163,863 @@ public partial class MainPage : ContentPage
     private void ShowLoading()
     {
         errorOverlay.IsVisible = false;
+        loadingMessageLabel.Text = "Conectando con el portal…";
         loadingOverlay.IsVisible = true;
     }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (!portalWebView.CanGoBack)
+        {
+            return base.OnBackButtonPressed();
+        }
+
+        MainThread.BeginInvokeOnMainThread(NavigateBackInBrowser);
+        return true;
+    }
+
+    private void NavigateBackInBrowser()
+    {
+        if (!portalWebView.CanGoBack)
+        {
+            UpdateBrowserControls();
+            return;
+        }
+
+        portalWebView.GoBack();
+        UpdateBrowserControls();
+    }
+
+    private void UpdateBrowserControls()
+    {
+        SetBrowserButtonState(backButton, portalWebView.CanGoBack);
+        SetBrowserButtonState(forwardButton, portalWebView.CanGoForward);
+    }
+
+    private void ApplyWhitelabel(WhitelabelConfig? config)
+    {
+        if (config is null)
+        {
+            return;
+        }
+
+        titleLabel.Text = config.NombreAplicacion;
+        brandImage.Source = WhitelabelLogoSource.FromFallbackAsset(config.LauncherIconKey);
+        _ = ApplyBrandLogoAsync(config);
+        var primaryColor = NormalizeHexColor(config.PrimaryColor, "#0F172A");
+        toolbarGrid.BackgroundColor = Color.FromArgb(primaryColor);
+        environmentLabel.Text = $"{config.EmpresaId.ToUpperInvariant()} · Portal seguro";
+        ApplySystemBars();
+    }
+
+    private async Task ApplyBrandLogoAsync(WhitelabelConfig config)
+    {
+        var logoSource = await WhitelabelLogoSource.CreateAsync(config.LogoUrl, config.LauncherIconKey);
+        if (_whitelabelConfig?.EmpresaId == config.EmpresaId)
+        {
+            brandImage.Source = logoSource;
+        }
+    }
+
+    public void ApplySystemBars()
+    {
+#if ANDROID
+        var primaryColor = NormalizeHexColor(_whitelabelConfig?.PrimaryColor ?? "#0F172A", "#0F172A");
+        MainActivity.ApplySystemBarColors(primaryColor, primaryColor);
+#endif
+    }
+
+    public void OnNativeResume()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastResumeNotificationUtc < MinimumResumeNotificationInterval)
+        {
+            return;
+        }
+
+        _lastResumeNotificationUtc = now;
+        _ = NotifyPortalResumeAsync();
+    }
+
+    private static string NormalizeHexColor(string value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        var candidate = value.Trim();
+        return candidate.StartsWith('#') ? candidate : "#" + candidate;
+    }
+
+    private static void SetBrowserButtonState(ImageButton button, bool isEnabled)
+    {
+        button.IsEnabled = isEnabled;
+        button.Opacity = isEnabled ? 1.0 : 0.38;
+    }
+
+    private async Task DownloadPortalFileAsync(Uri destination)
+    {
+        errorOverlay.IsVisible = false;
+        loadingMessageLabel.Text = "Preparando descarga de cotización…";
+        loadingOverlay.IsVisible = true;
+
+        try
+        {
+            await _fileDownloader.DownloadAndShareAsync(destination);
+        }
+        catch (Exception)
+        {
+            await DisplayAlertAsync(
+                "Descarga no disponible",
+                "No fue posible descargar la cotización. Inténtalo nuevamente desde Historial.",
+                "Aceptar");
+        }
+        finally
+        {
+            loadingOverlay.IsVisible = false;
+        }
+    }
+
+    private async Task InstallPortalVisualFixesAsync()
+    {
+        const string script = """
+            (function () {
+                if (window.__seriousMobileVisualFixesInstalled) {
+                    if (window.__seriousMobileApplyIconContrastFix) {
+                        window.clearTimeout(window.__seriousMobileIconFixTimer);
+                        window.__seriousMobileIconFixTimer = window.setTimeout(window.__seriousMobileApplyIconContrastFix, 250);
+                    }
+                    return true;
+                }
+
+                window.__seriousMobileVisualFixesInstalled = true;
+
+                function isDarkTheme() {
+                    return document.documentElement.classList.contains('masa-theme-dark')
+                        || document.body.classList.contains('masa-theme-dark')
+                        || document.documentElement.style.colorScheme === 'dark'
+                        || document.body.style.colorScheme === 'dark';
+                }
+
+                function parseRgb(value) {
+                    var match = String(value || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+                    if (!match) {
+                        return null;
+                    }
+
+                    return {
+                        r: Number(match[1]),
+                        g: Number(match[2]),
+                        b: Number(match[3])
+                    };
+                }
+
+                function isLightColor(value) {
+                    var rgb = parseRgb(value);
+                    return rgb && rgb.r >= 235 && rgb.g >= 235 && rgb.b >= 235;
+                }
+
+                function findLightIconContainer(element) {
+                    var current = element.parentElement;
+                    var depth = 0;
+
+                    while (current && depth < 5) {
+                        var style = window.getComputedStyle(current);
+                        var radius = parseFloat(style.borderTopLeftRadius || '0');
+                        var width = current.offsetWidth || 0;
+                        var height = current.offsetHeight || 0;
+
+                        if (isLightColor(style.backgroundColor) && radius >= 8 && width <= 96 && height <= 96) {
+                            return current;
+                        }
+
+                        current = current.parentElement;
+                        depth++;
+                    }
+
+                    return null;
+                }
+
+                function patchFontIcon(icon) {
+                    var container = findLightIconContainer(icon);
+                    if (!container) {
+                        return;
+                    }
+
+                    container.style.setProperty('background-color', '#ede9fe', 'important');
+                    container.style.setProperty('box-shadow', 'none', 'important');
+                    icon.style.setProperty('color', '#5b21b6', 'important');
+                    icon.style.setProperty('-webkit-text-fill-color', '#5b21b6', 'important');
+                }
+
+                function patchSvgIcon(svg) {
+                    var container = findLightIconContainer(svg);
+                    if (!container) {
+                        return;
+                    }
+
+                    container.style.setProperty('background-color', '#ede9fe', 'important');
+                    container.style.setProperty('box-shadow', 'none', 'important');
+                    svg.style.setProperty('color', '#5b21b6', 'important');
+
+                    svg.querySelectorAll('path, circle, rect, line, polyline, polygon').forEach(function (part) {
+                        var computed = window.getComputedStyle(part);
+                        if (isLightColor(computed.fill) || part.getAttribute('fill') === 'currentColor') {
+                            part.style.setProperty('fill', '#5b21b6', 'important');
+                        }
+
+                        if (isLightColor(computed.stroke) || part.getAttribute('stroke') === 'currentColor') {
+                            part.style.setProperty('stroke', '#5b21b6', 'important');
+                        }
+                    });
+                }
+
+                window.__seriousMobileApplyIconContrastFix = function () {
+                    if (!isDarkTheme()) {
+                        return;
+                    }
+
+                    document.querySelectorAll('i[class*="mdi"], span[class*="mdi"], .v-icon').forEach(patchFontIcon);
+                    document.querySelectorAll('svg').forEach(patchSvgIcon);
+                };
+
+                window.__seriousMobileApplyIconContrastFix();
+
+                window.setTimeout(window.__seriousMobileApplyIconContrastFix, 250);
+                window.setTimeout(window.__seriousMobileApplyIconContrastFix, 1000);
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The portal can reject script evaluation while Blazor is reconnecting or navigating.
+        }
+    }
+
+    private async Task InstallPortalResponsivePulseAsync()
+    {
+        const string script = """
+            (function () {
+                function pulseResponsiveLayout() {
+                    window.dispatchEvent(new Event('resize'));
+                    window.dispatchEvent(new UIEvent('resize', { view: window }));
+                    window.dispatchEvent(new Event('orientationchange'));
+
+                    if (window.visualViewport) {
+                        window.visualViewport.dispatchEvent(new Event('resize'));
+                    }
+
+                    window.requestAnimationFrame(function () {
+                        window.dispatchEvent(new Event('resize'));
+                        if (window.visualViewport) {
+                            window.visualViewport.dispatchEvent(new Event('resize'));
+                        }
+                    });
+                }
+
+                function startResponsivePulseWindow(durationMs) {
+                    var startedAt = Date.now();
+
+                    window.clearInterval(window.__seriousMobileResponsivePulseInterval);
+                    pulseResponsiveLayout();
+
+                    window.__seriousMobileResponsivePulseInterval = window.setInterval(function () {
+                        pulseResponsiveLayout();
+
+                        if (Date.now() - startedAt >= durationMs) {
+                            window.clearInterval(window.__seriousMobileResponsivePulseInterval);
+                            window.__seriousMobileResponsivePulseInterval = null;
+                        }
+                    }, 350);
+                }
+
+                function scheduleResponsivePulse() {
+                    window.clearTimeout(window.__seriousMobileResponsivePulseTimer);
+                    window.__seriousMobileResponsivePulseTimer = window.setTimeout(function () {
+                        startResponsivePulseWindow(3500);
+                    }, 120);
+                }
+
+                function getHistoryLayoutSignature() {
+                    var text = (document.body && document.body.innerText || '').toLowerCase();
+                    var isHistory = text.indexOf('historial') >= 0
+                        || text.indexOf('cotizaciones') >= 0
+                        || text.indexOf('cargando historial') >= 0;
+
+                    if (!isHistory) {
+                        return '';
+                    }
+
+                    return [
+                        text.indexOf('cargando historial') >= 0 ? 'loading' : 'ready',
+                        text.indexOf('pdf') >= 0 ? 'pdf' : '',
+                        text.indexOf('zip') >= 0 ? 'zip' : '',
+                        text.indexOf('reporte') >= 0 ? 'reporte' : '',
+                        text.indexOf('whatsapp') >= 0 ? 'whatsapp' : '',
+                        text.indexOf('cotizada') >= 0 ? 'cotizada' : '',
+                        document.querySelectorAll('button, a, [role="button"]').length
+                    ].join('|');
+                }
+
+                function checkHistoryLayout() {
+                    var signature = getHistoryLayoutSignature();
+                    if (!signature || signature === window.__seriousMobileHistoryLayoutSignature) {
+                        return;
+                    }
+
+                    window.__seriousMobileHistoryLayoutSignature = signature;
+                    startResponsivePulseWindow(signature.indexOf('loading') >= 0 ? 1200 : 2800);
+                }
+
+                checkHistoryLayout();
+                startResponsivePulseWindow(2500);
+
+                if (!window.__seriousMobileResponsivePulseInstalled) {
+                    window.__seriousMobileResponsivePulseInstalled = true;
+
+                    document.addEventListener('click', checkHistoryLayout, { capture: true, passive: true });
+                    document.addEventListener('touchend', checkHistoryLayout, { capture: true, passive: true });
+                    document.addEventListener('keyup', checkHistoryLayout, true);
+
+                    if (window.MutationObserver) {
+                        window.__seriousMobileResponsiveMutationObserver = new MutationObserver(function () {
+                            window.clearTimeout(window.__seriousMobileHistoryLayoutTimer);
+                            window.__seriousMobileHistoryLayoutTimer = window.setTimeout(checkHistoryLayout, 120);
+                        });
+
+                        window.__seriousMobileResponsiveMutationObserver.observe(document.body || document.documentElement, {
+                            childList: true,
+                            subtree: true
+                        });
+
+                        window.setTimeout(function () {
+                            if (window.__seriousMobileResponsiveMutationObserver) {
+                                window.__seriousMobileResponsiveMutationObserver.disconnect();
+                                window.__seriousMobileResponsiveMutationObserver = null;
+                            }
+                        }, 18000);
+                    }
+                }
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The portal may reject script evaluation while it is still rendering.
+        }
+    }
+
+    private async Task NotifyPortalResumeAsync()
+    {
+        const string script = """
+            (function () {
+                var resumeDetail = {
+                    source: 'serious-mobile-android',
+                    resumedAt: new Date().toISOString(),
+                    href: window.location.href
+                };
+
+                window.__seriousMobileLastResume = resumeDetail;
+
+                function dispatch(target, eventName) {
+                    try {
+                        target.dispatchEvent(new Event(eventName));
+                    } catch (error) {
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                try {
+                    document.dispatchEvent(new CustomEvent('serious-mobile-resume', { detail: resumeDetail }));
+                } catch (error) {
+                    dispatch(document, 'serious-mobile-resume');
+                }
+
+                dispatch(document, 'visibilitychange');
+                dispatch(window, 'focus');
+                dispatch(window, 'online');
+                dispatch(window, 'resize');
+
+                if (window.visualViewport) {
+                    dispatch(window.visualViewport, 'resize');
+                }
+
+                window.requestAnimationFrame(function () {
+                    dispatch(window, 'resize');
+
+                    if (window.visualViewport) {
+                        dispatch(window.visualViewport, 'resize');
+                    }
+                });
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The WebView can reject JavaScript while Android is resuming or the portal is reconnecting.
+        }
+    }
+
+    private async Task InstallPortalAutoLoginAsync()
+    {
+        var credentials = await _credentialStore.GetAsync(_whitelabelState.TenantSession);
+        if (credentials is null)
+        {
+            return;
+        }
+
+        var email = JsonSerializer.Serialize(credentials.Email);
+        var password = JsonSerializer.Serialize(credentials.Password);
+        var script = $$"""
+            (function () {
+                if (window.__seriousMobilePortalLoginSubmitted) {
+                    return true;
+                }
+
+                var email = {{email}};
+                var password = {{password}};
+                var maxLoginAttemptsMs = 15000;
+                var startedAt = Date.now();
+
+                function isVisible(element) {
+                    if (!element) {
+                        return false;
+                    }
+
+                    var box = element.getBoundingClientRect();
+                    var style = window.getComputedStyle(element);
+                    return box.width > 0
+                        && box.height > 0
+                        && style.visibility !== 'hidden'
+                        && style.display !== 'none';
+                }
+
+                function valueContains(input, values) {
+                    var source = [
+                        input.type,
+                        input.name,
+                        input.id,
+                        input.autocomplete,
+                        input.placeholder,
+                        input.getAttribute('aria-label')
+                    ].join(' ').toLowerCase();
+
+                    return values.some(function (value) {
+                        return source.indexOf(value) >= 0;
+                    });
+                }
+
+                function findEmailInput() {
+                    var inputs = Array.prototype.filter.call(
+                        document.querySelectorAll('input'),
+                        function (input) {
+                            return isVisible(input)
+                                && input.type !== 'password'
+                                && input.type !== 'hidden'
+                                && input.type !== 'checkbox'
+                                && input.type !== 'radio';
+                        });
+
+                    return inputs.find(function (input) {
+                        return valueContains(input, ['email', 'correo', 'user', 'usuario', 'login', 'username']);
+                    }) || inputs.find(function (input) {
+                        return input.type === 'email' || input.type === 'text';
+                    }) || null;
+                }
+
+                function findSubmitButton(passwordInput) {
+                    var form = passwordInput && passwordInput.closest('form');
+                    var candidates = form
+                        ? form.querySelectorAll('button, input[type="submit"], [role="button"]')
+                        : document.querySelectorAll('button, input[type="submit"], [role="button"]');
+
+                    return Array.prototype.find.call(candidates, function (button) {
+                        var text = (button.innerText || button.value || button.textContent || '').trim().toLowerCase();
+                        return isVisible(button)
+                            && !button.disabled
+                            && (text.indexOf('entrar') >= 0
+                                || text.indexOf('ingresar') >= 0
+                                || text.indexOf('iniciar') >= 0
+                                || text.indexOf('acceder') >= 0
+                                || text.indexOf('login') >= 0
+                                || text.indexOf('sign in') >= 0
+                                || button.type === 'submit');
+                    });
+                }
+
+                function setInputValue(input, value) {
+                    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    setter.call(input, value);
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+                    input.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+
+                function trySubmitLogin() {
+                    if (Date.now() - startedAt > maxLoginAttemptsMs) {
+                        stopAutoLoginWatch();
+                        return false;
+                    }
+
+                    var passwordInput = Array.prototype.find.call(
+                        document.querySelectorAll('input[type="password"]'),
+                        isVisible);
+                    var emailInput = findEmailInput();
+
+                    if (!emailInput || !passwordInput) {
+                        return false;
+                    }
+
+                    setInputValue(emailInput, email);
+                    setInputValue(passwordInput, password);
+
+                    window.__seriousMobilePortalLoginSubmitted = true;
+
+                    var submitButton = findSubmitButton(passwordInput);
+                    if (submitButton) {
+                        stopAutoLoginWatch();
+                        submitButton.click();
+                        return true;
+                    }
+
+                    var form = passwordInput.closest('form') || emailInput.closest('form');
+                    if (form && typeof form.requestSubmit === 'function') {
+                        stopAutoLoginWatch();
+                        form.requestSubmit();
+                        return true;
+                    }
+
+                    if (form) {
+                        stopAutoLoginWatch();
+                        form.submit();
+                        return true;
+                    }
+
+                    window.__seriousMobilePortalLoginSubmitted = false;
+                    return false;
+                }
+
+                function stopAutoLoginWatch() {
+                    window.clearInterval(window.__seriousMobilePortalLoginInterval);
+                    window.clearTimeout(window.__seriousMobilePortalLoginTimer);
+
+                    if (window.__seriousMobilePortalLoginObserver) {
+                        window.__seriousMobilePortalLoginObserver.disconnect();
+                        window.__seriousMobilePortalLoginObserver = null;
+                    }
+                }
+
+                if (trySubmitLogin()) {
+                    return true;
+                }
+
+                window.clearInterval(window.__seriousMobilePortalLoginInterval);
+                window.clearTimeout(window.__seriousMobilePortalLoginTimer);
+
+                window.__seriousMobilePortalLoginInterval = window.setInterval(trySubmitLogin, 500);
+                window.__seriousMobilePortalLoginTimer = window.setTimeout(stopAutoLoginWatch, maxLoginAttemptsMs + 1000);
+
+                if (window.MutationObserver) {
+                    if (window.__seriousMobilePortalLoginObserver) {
+                        window.__seriousMobilePortalLoginObserver.disconnect();
+                    }
+
+                    window.__seriousMobilePortalLoginObserver = new MutationObserver(function () {
+                        window.clearTimeout(window.__seriousMobilePortalLoginMutationTimer);
+                        window.__seriousMobilePortalLoginMutationTimer = window.setTimeout(trySubmitLogin, 150);
+                    });
+
+                    window.__seriousMobilePortalLoginObserver.observe(document.body || document.documentElement, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['class', 'style', 'disabled']
+                    });
+                }
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The portal can reject script evaluation while the login view is still rendering.
+        }
+    }
+
+    private async Task ApplyPortalWhitelabelLogoAsync()
+    {
+        var logoSource = GetConfiguredPortalLogoSource(_whitelabelConfig, _startUri);
+        var fallbackLogoSource = BuildLogoDataUri(_whitelabelConfig);
+        if (string.IsNullOrWhiteSpace(logoSource) && string.IsNullOrWhiteSpace(fallbackLogoSource))
+        {
+            return;
+        }
+
+        var script = $$"""
+            (function () {
+                var logo = '{{logoSource}}';
+                var fallbackLogo = '{{fallbackLogoSource}}';
+                var finalLogo = fallbackLogo || logo;
+
+                function patchTenantLogo() {
+                    document.querySelectorAll('img').forEach(function (image) {
+                        var box = image.getBoundingClientRect();
+                        var src = image.getAttribute('src') || '';
+                        var alt = image.getAttribute('alt') || '';
+                        var hasLogoSize = box.width >= 12 && box.width <= 180 && box.height >= 12 && box.height <= 180;
+                        var looksLikeLogo = /logo|brand|white-label/i.test(src + ' ' + alt);
+                        var failed = image.complete && image.naturalWidth === 0;
+                        var empty = !image.getAttribute('src');
+
+                        if (hasLogoSize && (looksLikeLogo || failed || empty)) {
+                            if (image.dataset && image.dataset.seriousMobileLogoPatched === finalLogo) {
+                                return;
+                            }
+
+                            image.onerror = function () {
+                                if (fallbackLogo && image.src !== fallbackLogo) {
+                                    image.src = fallbackLogo;
+                                }
+                            };
+
+                            if (image.src !== finalLogo) {
+                                image.src = finalLogo;
+                            }
+
+                            if (image.dataset) {
+                                image.dataset.seriousMobileLogoPatched = finalLogo;
+                            }
+
+                            image.style.setProperty('object-fit', 'contain', 'important');
+                            image.style.setProperty('object-position', 'center', 'important');
+                            image.style.setProperty('width', '52px', 'important');
+                            image.style.setProperty('height', '52px', 'important');
+                            image.style.setProperty('max-width', '52px', 'important');
+                            image.style.setProperty('max-height', '52px', 'important');
+                            image.style.setProperty('padding', '2px', 'important');
+                            image.style.setProperty('display', 'block', 'important');
+
+                            var parent = image.parentElement;
+                            if (parent) {
+                                parent.style.setProperty('width', '64px', 'important');
+                                parent.style.setProperty('height', '64px', 'important');
+                                parent.style.setProperty('min-width', '64px', 'important');
+                                parent.style.setProperty('min-height', '64px', 'important');
+                                parent.style.setProperty('display', 'flex', 'important');
+                                parent.style.setProperty('align-items', 'center', 'important');
+                                parent.style.setProperty('justify-content', 'center', 'important');
+                                parent.style.setProperty('overflow', 'hidden', 'important');
+                                parent.style.setProperty('background-color', '#ffffff', 'important');
+                                parent.style.setProperty('border-radius', '16px', 'important');
+                            }
+                        }
+                    });
+                }
+
+                patchTenantLogo();
+                window.setTimeout(patchTenantLogo, 250);
+                window.setTimeout(patchTenantLogo, 1000);
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The portal may reject script evaluation while it is still rendering.
+        }
+    }
+
+    private static string GetConfiguredPortalLogoSource(WhitelabelConfig? config, Uri startUri)
+    {
+        if (string.IsNullOrWhiteSpace(config?.LogoUrl))
+        {
+            return string.Empty;
+        }
+
+        var logoUrl = config.LogoUrl.Trim();
+        if (Uri.TryCreate(logoUrl, UriKind.Absolute, out var absoluteUri))
+        {
+            return absoluteUri.AbsoluteUri;
+        }
+
+        return Uri.TryCreate(startUri, logoUrl, out var relativeUri)
+            ? relativeUri.AbsoluteUri
+            : string.Empty;
+    }
+
+#if ANDROID
+    private async Task InstallAndroidBlobCaptureAsync()
+    {
+        const string script = """
+            (function () {
+                if (window.__mauiBlobCaptureInstalled) {
+                    return true;
+                }
+
+                window.__mauiBlobCaptureInstalled = true;
+                window.__mauiBlobDownloads = window.__mauiBlobDownloads || {};
+                window.__mauiLastDownloadContext = window.__mauiLastDownloadContext || {};
+
+                function sanitizePart(value) {
+                    return String(value || '')
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-zA-Z0-9_-]+/g, '-')
+                        .replace(/^-+|-+$/g, '')
+                        .slice(0, 40);
+                }
+
+                function findBankToken(text) {
+                    var known = [
+                        'BAN', 'GS', 'GNP', 'AXA', 'HDI', 'ANA', 'CHUBB', 'MAPFRE',
+                        'ZURICH', 'QUALITAS', 'AFIRME', 'SURA', 'ATLAS', 'ELPOTOSI',
+                        'POTOSI', 'INBURSA', 'BX', 'GENERAL', 'BBVA', 'BANORTE',
+                        'SANTANDER', 'BANAMEX', 'HSBC', 'SCOTIABANK', 'ZRH', 'AFI'
+                    ];
+
+                    var upperText = String(text || '').toUpperCase();
+                    for (var index = 0; index < known.length; index++) {
+                        if (new RegExp('(^|\\s)' + known[index] + '(\\s|$)').test(upperText)) {
+                            return known[index];
+                        }
+                    }
+
+                    var tokens = upperText.match(/\b[A-Z]{2,8}\b/g) || [];
+                    var ignored = {
+                        PDF: true,
+                        ZIP: true,
+                        XLS: true,
+                        XLSX: true,
+                        DESC: true,
+                        DESCARGA: true,
+                        DESCARGAR: true,
+                        EMITIR: true,
+                        POLIZA: true,
+                        POLIZA: true,
+                        COTIZACION: true,
+                        COTIZACIÓN: true,
+                        SERIOUSTECH: true,
+                        COTIZADA: true,
+                        HISTORIAL: true,
+                        ADMINISTRADOR: true,
+                        GLOBAL: true
+                    };
+
+                    for (var tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+                        if (!ignored[tokens[tokenIndex]]) {
+                            return tokens[tokenIndex];
+                        }
+                    }
+
+                    return '';
+                }
+
+                function findContextFromElement(element) {
+                    var current = element;
+                    var depth = 0;
+                    while (current && depth < 12) {
+                        var text = current.innerText || current.textContent || '';
+                        var folioMatch = String(text).match(/\b\d{6,}\b/);
+                        var bank = findBankToken(text);
+
+                        if (folioMatch || bank) {
+                            return {
+                                bank: sanitizePart(bank),
+                                folio: sanitizePart(folioMatch ? folioMatch[0] : ''),
+                                capturedAt: new Date().toISOString()
+                            };
+                        }
+
+                        current = current.parentElement;
+                        depth++;
+                    }
+
+                    return null;
+                }
+
+                function rememberDownloadContext(event) {
+                    var context = findContextFromElement(event.target);
+                    var previous = window.__mauiLastDownloadContext || {};
+                    if (context && context.bank) {
+                        window.__mauiLastDownloadContext = context;
+                        return;
+                    }
+
+                    if (context && context.folio && !previous.bank) {
+                        window.__mauiLastDownloadContext = context;
+                    }
+                }
+
+                document.addEventListener('pointerdown', rememberDownloadContext, true);
+                document.addEventListener('click', rememberDownloadContext, true);
+
+                var originalCreateObjectURL = URL.createObjectURL.bind(URL);
+                URL.createObjectURL = function (object) {
+                    var objectUrl = originalCreateObjectURL(object);
+                    if (object instanceof Blob) {
+                        window.__mauiBlobDownloads[objectUrl] = {
+                            blob: object,
+                            context: window.__mauiLastDownloadContext || {}
+                        };
+                    }
+
+                    return objectUrl;
+                };
+
+                var originalRevokeObjectURL = URL.revokeObjectURL.bind(URL);
+                URL.revokeObjectURL = function (objectUrl) {
+                    setTimeout(function () {
+                        delete window.__mauiBlobDownloads[objectUrl];
+                        originalRevokeObjectURL(objectUrl);
+                    }, 30000);
+                };
+
+                return true;
+            })();
+            """;
+
+        try
+        {
+            await portalWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch
+        {
+            // The portal can block script evaluation during intermediate navigations.
+        }
+    }
+#endif
 
     private void ShowError(string message)
     {
@@ -127,5 +1046,59 @@ public partial class MainPage : ContentPage
 
         throw new InvalidOperationException(
             $"{WebPortalOptions.SectionName}:StartUrl must be an absolute HTTPS URL.");
+    }
+
+    private static string BuildLogoDataUri(WhitelabelConfig? config)
+    {
+        if (config is null)
+        {
+            return string.Empty;
+        }
+
+        var svg = GetFallbackLogoSvg(config.LauncherIconKey);
+
+        return "data:image/svg+xml;charset=utf-8," + Uri.EscapeDataString(svg);
+    }
+
+    private static string GetFallbackLogoSvg(string launcherIconKey)
+    {
+        return launcherIconKey.Trim().ToLowerInvariant() switch
+        {
+            "ali" => """
+                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="128" height="128" rx="28" fill="#F59E0B"/>
+                  <path d="M34 84L58 32H72L96 84H80L76 74H54L50 84H34ZM59 60H71L65 45L59 60Z" fill="#FFFFFF"/>
+                  <text x="64" y="106" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800" fill="#FFFFFF">ALI</text>
+                </svg>
+                """,
+            "cbe" => """
+                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="128" height="128" rx="28" fill="#0F766E"/>
+                  <circle cx="98" cy="30" r="14" fill="#F59E0B"/>
+                  <text x="64" y="72" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#FFFFFF">CBE</text>
+                  <text x="93" y="49" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">+</text>
+                </svg>
+                """,
+            "oak" => """
+                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="128" height="128" rx="28" fill="#14532D"/>
+                  <path d="M64 18C84 18 100 33 100 53C100 78 79 95 64 106C49 95 28 78 28 53C28 33 44 18 64 18Z" fill="#22C55E"/>
+                  <path d="M64 34C76 34 86 44 86 56C86 72 73 84 64 91C55 84 42 72 42 56C42 44 52 34 64 34Z" fill="#DCFCE7"/>
+                  <path d="M59 55H69V92H59V55Z" fill="#14532D"/>
+                  <path d="M64 62L82 49L87 56L64 74V62Z" fill="#14532D"/>
+                  <path d="M64 62L46 49L41 56L64 74V62Z" fill="#14532D"/>
+                </svg>
+                """,
+            _ => """
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="SeriousTech">
+                  <rect width="96" height="96" rx="22" fill="#0f172a"/>
+                  <path d="M25 60c0-16 10-29 25-29 11 0 20 5 24 14" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M28 61c7 11 20 15 32 10 8-3 13-9 16-16" fill="none" stroke="#22c55e" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M34 43c5-9 19-12 28-4 5 4 7 10 6 16" fill="none" stroke="#f59e0b" stroke-width="7" stroke-linecap="round"/>
+                  <circle cx="48" cy="52" r="9" fill="#ffffff"/>
+                  <circle cx="48" cy="52" r="4" fill="#1d4ed8"/>
+                </svg>
+                """
+        };
     }
 }

@@ -1,5 +1,6 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg width="456" height="456" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SeriousTech">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="SeriousTech">
+  <rect width="96" height="96" rx="22" fill="#0f172a"/>
   <path d="M25 60c0-16 10-29 25-29 11 0 20 5 24 14" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"/>
   <path d="M28 61c7 11 20 15 32 10 8-3 13-9 16-16" fill="none" stroke="#22c55e" stroke-width="8" stroke-linecap="round"/>
   <path d="M34 43c5-9 19-12 28-4 5 4 7 10 6 16" fill="none" stroke="#f59e0b" stroke-width="7" stroke-linecap="round"/>
