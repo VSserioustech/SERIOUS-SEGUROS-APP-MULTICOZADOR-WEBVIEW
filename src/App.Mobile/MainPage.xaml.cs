@@ -94,9 +94,8 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         if (e.Result == WebNavigationResult.Success)
         {
             errorOverlay.IsVisible = false;
-            await InstallPortalVisualFixesAsync();
-            await InstallPortalResponsivePulseAsync();
             await InstallPortalAutoLoginAsync();
+            await InstallPortalBrandingPatchAsync();
 #if ANDROID
             await InstallAndroidBlobCaptureAsync();
 #endif
@@ -214,10 +213,20 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
 
     private async Task ApplyBrandLogoAsync(WhitelabelConfig config)
     {
-        var logoSource = await WhitelabelLogoSource.CreateAsync(config.LogoUrl, config.LauncherIconKey);
-        if (_whitelabelConfig?.EmpresaId == config.EmpresaId)
+        try
         {
-            brandImage.Source = logoSource;
+            var logoSource = await WhitelabelLogoSource.CreateAsync(config.LogoUrl, config.LauncherIconKey);
+            if (_whitelabelConfig?.EmpresaId == config.EmpresaId)
+            {
+                brandImage.Source = logoSource;
+            }
+        }
+        catch (Exception)
+        {
+            if (_whitelabelConfig?.EmpresaId == config.EmpresaId)
+            {
+                brandImage.Source = WhitelabelLogoSource.FromFallbackAsset(config.LauncherIconKey);
+            }
         }
     }
 
@@ -258,6 +267,24 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         button.Opacity = isEnabled ? 1.0 : 0.38;
     }
 
+    private static string GetPortalDisplayName(WhitelabelConfig config) =>
+        string.IsNullOrWhiteSpace(config.NombreAplicacion)
+            ? config.EmpresaId
+            : config.NombreAplicacion.Trim();
+
+    private static string GetPortalSubtitle(WhitelabelConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(config.EmpresaId))
+        {
+            return GetPortalDisplayName(config);
+        }
+
+        return config.EmpresaId
+            .Trim()
+            .Replace('-', ' ')
+            .ToUpperInvariant();
+    }
+
     private async Task DownloadPortalFileAsync(Uri destination)
     {
         errorOverlay.IsVisible = false;
@@ -278,247 +305,6 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         finally
         {
             loadingOverlay.IsVisible = false;
-        }
-    }
-
-    private async Task InstallPortalVisualFixesAsync()
-    {
-        const string script = """
-            (function () {
-                if (window.__seriousMobileVisualFixesInstalled) {
-                    if (window.__seriousMobileApplyIconContrastFix) {
-                        window.clearTimeout(window.__seriousMobileIconFixTimer);
-                        window.__seriousMobileIconFixTimer = window.setTimeout(window.__seriousMobileApplyIconContrastFix, 250);
-                    }
-                    return true;
-                }
-
-                window.__seriousMobileVisualFixesInstalled = true;
-
-                function isDarkTheme() {
-                    return document.documentElement.classList.contains('masa-theme-dark')
-                        || document.body.classList.contains('masa-theme-dark')
-                        || document.documentElement.style.colorScheme === 'dark'
-                        || document.body.style.colorScheme === 'dark';
-                }
-
-                function parseRgb(value) {
-                    var match = String(value || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-                    if (!match) {
-                        return null;
-                    }
-
-                    return {
-                        r: Number(match[1]),
-                        g: Number(match[2]),
-                        b: Number(match[3])
-                    };
-                }
-
-                function isLightColor(value) {
-                    var rgb = parseRgb(value);
-                    return rgb && rgb.r >= 235 && rgb.g >= 235 && rgb.b >= 235;
-                }
-
-                function findLightIconContainer(element) {
-                    var current = element.parentElement;
-                    var depth = 0;
-
-                    while (current && depth < 5) {
-                        var style = window.getComputedStyle(current);
-                        var radius = parseFloat(style.borderTopLeftRadius || '0');
-                        var width = current.offsetWidth || 0;
-                        var height = current.offsetHeight || 0;
-
-                        if (isLightColor(style.backgroundColor) && radius >= 8 && width <= 96 && height <= 96) {
-                            return current;
-                        }
-
-                        current = current.parentElement;
-                        depth++;
-                    }
-
-                    return null;
-                }
-
-                function patchFontIcon(icon) {
-                    var container = findLightIconContainer(icon);
-                    if (!container) {
-                        return;
-                    }
-
-                    container.style.setProperty('background-color', '#ede9fe', 'important');
-                    container.style.setProperty('box-shadow', 'none', 'important');
-                    icon.style.setProperty('color', '#5b21b6', 'important');
-                    icon.style.setProperty('-webkit-text-fill-color', '#5b21b6', 'important');
-                }
-
-                function patchSvgIcon(svg) {
-                    var container = findLightIconContainer(svg);
-                    if (!container) {
-                        return;
-                    }
-
-                    container.style.setProperty('background-color', '#ede9fe', 'important');
-                    container.style.setProperty('box-shadow', 'none', 'important');
-                    svg.style.setProperty('color', '#5b21b6', 'important');
-
-                    svg.querySelectorAll('path, circle, rect, line, polyline, polygon').forEach(function (part) {
-                        var computed = window.getComputedStyle(part);
-                        if (isLightColor(computed.fill) || part.getAttribute('fill') === 'currentColor') {
-                            part.style.setProperty('fill', '#5b21b6', 'important');
-                        }
-
-                        if (isLightColor(computed.stroke) || part.getAttribute('stroke') === 'currentColor') {
-                            part.style.setProperty('stroke', '#5b21b6', 'important');
-                        }
-                    });
-                }
-
-                window.__seriousMobileApplyIconContrastFix = function () {
-                    if (!isDarkTheme()) {
-                        return;
-                    }
-
-                    document.querySelectorAll('i[class*="mdi"], span[class*="mdi"], .v-icon').forEach(patchFontIcon);
-                    document.querySelectorAll('svg').forEach(patchSvgIcon);
-                };
-
-                window.__seriousMobileApplyIconContrastFix();
-
-                window.setTimeout(window.__seriousMobileApplyIconContrastFix, 250);
-                window.setTimeout(window.__seriousMobileApplyIconContrastFix, 1000);
-
-                return true;
-            })();
-            """;
-
-        try
-        {
-            await portalWebView.EvaluateJavaScriptAsync(script);
-        }
-        catch
-        {
-            // The portal can reject script evaluation while Blazor is reconnecting or navigating.
-        }
-    }
-
-    private async Task InstallPortalResponsivePulseAsync()
-    {
-        const string script = """
-            (function () {
-                function pulseResponsiveLayout() {
-                    window.dispatchEvent(new Event('resize'));
-                    window.dispatchEvent(new UIEvent('resize', { view: window }));
-                    window.dispatchEvent(new Event('orientationchange'));
-
-                    if (window.visualViewport) {
-                        window.visualViewport.dispatchEvent(new Event('resize'));
-                    }
-
-                    window.requestAnimationFrame(function () {
-                        window.dispatchEvent(new Event('resize'));
-                        if (window.visualViewport) {
-                            window.visualViewport.dispatchEvent(new Event('resize'));
-                        }
-                    });
-                }
-
-                function startResponsivePulseWindow(durationMs) {
-                    var startedAt = Date.now();
-
-                    window.clearInterval(window.__seriousMobileResponsivePulseInterval);
-                    pulseResponsiveLayout();
-
-                    window.__seriousMobileResponsivePulseInterval = window.setInterval(function () {
-                        pulseResponsiveLayout();
-
-                        if (Date.now() - startedAt >= durationMs) {
-                            window.clearInterval(window.__seriousMobileResponsivePulseInterval);
-                            window.__seriousMobileResponsivePulseInterval = null;
-                        }
-                    }, 350);
-                }
-
-                function scheduleResponsivePulse() {
-                    window.clearTimeout(window.__seriousMobileResponsivePulseTimer);
-                    window.__seriousMobileResponsivePulseTimer = window.setTimeout(function () {
-                        startResponsivePulseWindow(3500);
-                    }, 120);
-                }
-
-                function getHistoryLayoutSignature() {
-                    var text = (document.body && document.body.innerText || '').toLowerCase();
-                    var isHistory = text.indexOf('historial') >= 0
-                        || text.indexOf('cotizaciones') >= 0
-                        || text.indexOf('cargando historial') >= 0;
-
-                    if (!isHistory) {
-                        return '';
-                    }
-
-                    return [
-                        text.indexOf('cargando historial') >= 0 ? 'loading' : 'ready',
-                        text.indexOf('pdf') >= 0 ? 'pdf' : '',
-                        text.indexOf('zip') >= 0 ? 'zip' : '',
-                        text.indexOf('reporte') >= 0 ? 'reporte' : '',
-                        text.indexOf('whatsapp') >= 0 ? 'whatsapp' : '',
-                        text.indexOf('cotizada') >= 0 ? 'cotizada' : '',
-                        document.querySelectorAll('button, a, [role="button"]').length
-                    ].join('|');
-                }
-
-                function checkHistoryLayout() {
-                    var signature = getHistoryLayoutSignature();
-                    if (!signature || signature === window.__seriousMobileHistoryLayoutSignature) {
-                        return;
-                    }
-
-                    window.__seriousMobileHistoryLayoutSignature = signature;
-                    startResponsivePulseWindow(signature.indexOf('loading') >= 0 ? 1200 : 2800);
-                }
-
-                checkHistoryLayout();
-                startResponsivePulseWindow(2500);
-
-                if (!window.__seriousMobileResponsivePulseInstalled) {
-                    window.__seriousMobileResponsivePulseInstalled = true;
-
-                    document.addEventListener('click', checkHistoryLayout, { capture: true, passive: true });
-                    document.addEventListener('touchend', checkHistoryLayout, { capture: true, passive: true });
-                    document.addEventListener('keyup', checkHistoryLayout, true);
-
-                    if (window.MutationObserver) {
-                        window.__seriousMobileResponsiveMutationObserver = new MutationObserver(function () {
-                            window.clearTimeout(window.__seriousMobileHistoryLayoutTimer);
-                            window.__seriousMobileHistoryLayoutTimer = window.setTimeout(checkHistoryLayout, 120);
-                        });
-
-                        window.__seriousMobileResponsiveMutationObserver.observe(document.body || document.documentElement, {
-                            childList: true,
-                            subtree: true
-                        });
-
-                        window.setTimeout(function () {
-                            if (window.__seriousMobileResponsiveMutationObserver) {
-                                window.__seriousMobileResponsiveMutationObserver.disconnect();
-                                window.__seriousMobileResponsiveMutationObserver = null;
-                            }
-                        }, 18000);
-                    }
-                }
-
-                return true;
-            })();
-            """;
-
-        try
-        {
-            await portalWebView.EvaluateJavaScriptAsync(script);
-        }
-        catch
-        {
-            // The portal may reject script evaluation while it is still rendering.
         }
     }
 
@@ -773,79 +559,168 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         }
     }
 
-    private async Task ApplyPortalWhitelabelLogoAsync()
+    private async Task InstallPortalBrandingPatchAsync()
     {
-        var logoSource = GetConfiguredPortalLogoSource(_whitelabelConfig, _startUri);
-        var fallbackLogoSource = BuildLogoDataUri(_whitelabelConfig);
-        if (string.IsNullOrWhiteSpace(logoSource) && string.IsNullOrWhiteSpace(fallbackLogoSource))
+        if (_whitelabelConfig is null)
         {
             return;
         }
 
+        var displayName = JsonSerializer.Serialize(GetPortalDisplayName(_whitelabelConfig));
+        var subtitle = JsonSerializer.Serialize(GetPortalSubtitle(_whitelabelConfig));
+        var logoUrl = JsonSerializer.Serialize(_whitelabelConfig.LogoUrl);
+        var fallbackLogo = JsonSerializer.Serialize(BuildPortalBrandLogoDataUri(_whitelabelConfig.LauncherIconKey));
+
         var script = $$"""
             (function () {
-                var logo = '{{logoSource}}';
-                var fallbackLogo = '{{fallbackLogoSource}}';
-                var finalLogo = fallbackLogo || logo;
+                window.__seriousMobileBranding = {
+                    displayName: {{displayName}},
+                    subtitle: {{subtitle}},
+                    logoUrl: {{logoUrl}},
+                    fallbackLogo: {{fallbackLogo}}
+                };
 
-                function patchTenantLogo() {
-                    document.querySelectorAll('img').forEach(function (image) {
-                        var box = image.getBoundingClientRect();
-                        var src = image.getAttribute('src') || '';
-                        var alt = image.getAttribute('alt') || '';
-                        var hasLogoSize = box.width >= 12 && box.width <= 180 && box.height >= 12 && box.height <= 180;
-                        var looksLikeLogo = /logo|brand|white-label/i.test(src + ' ' + alt);
-                        var failed = image.complete && image.naturalWidth === 0;
-                        var empty = !image.getAttribute('src');
+                function isTargetText(value) {
+                    var text = String(value || '').trim().toLowerCase();
+                    return text === 'serious tech'
+                        || text === 'serious seguros'
+                        || text === 'serious';
+                }
 
-                        if (hasLogoSize && (looksLikeLogo || failed || empty)) {
-                            if (image.dataset && image.dataset.seriousMobileLogoPatched === finalLogo) {
-                                return;
-                            }
+                function isSideMenuArea(element) {
+                    var box = element.getBoundingClientRect();
+                    if (!box || box.width <= 0 || box.height <= 0) {
+                        return false;
+                    }
 
-                            image.onerror = function () {
-                                if (fallbackLogo && image.src !== fallbackLogo) {
-                                    image.src = fallbackLogo;
-                                }
-                            };
+                    var inLeftBrandArea = box.left >= -10 && box.left <= 430 && box.top >= 0 && box.top <= 280;
+                    if (!inLeftBrandArea) {
+                        return false;
+                    }
 
-                            if (image.src !== finalLogo) {
-                                image.src = finalLogo;
-                            }
+                    return !!element.closest('aside, nav, .v-navigation-drawer, [class*="drawer"], [class*="sidebar"], [class*="menu"]')
+                        || box.left < 260;
+                }
 
-                            if (image.dataset) {
-                                image.dataset.seriousMobileLogoPatched = finalLogo;
-                            }
+                function patchText(element, value) {
+                    if (!element || !value || element.textContent === value) {
+                        return false;
+                    }
 
-                            image.style.setProperty('object-fit', 'contain', 'important');
-                            image.style.setProperty('object-position', 'center', 'important');
-                            image.style.setProperty('width', '52px', 'important');
-                            image.style.setProperty('height', '52px', 'important');
-                            image.style.setProperty('max-width', '52px', 'important');
-                            image.style.setProperty('max-height', '52px', 'important');
-                            image.style.setProperty('padding', '2px', 'important');
-                            image.style.setProperty('display', 'block', 'important');
+                    element.textContent = value;
+                    element.setAttribute('data-serious-mobile-branding', 'true');
+                    return true;
+                }
 
-                            var parent = image.parentElement;
-                            if (parent) {
-                                parent.style.setProperty('width', '64px', 'important');
-                                parent.style.setProperty('height', '64px', 'important');
-                                parent.style.setProperty('min-width', '64px', 'important');
-                                parent.style.setProperty('min-height', '64px', 'important');
-                                parent.style.setProperty('display', 'flex', 'important');
-                                parent.style.setProperty('align-items', 'center', 'important');
-                                parent.style.setProperty('justify-content', 'center', 'important');
-                                parent.style.setProperty('overflow', 'hidden', 'important');
-                                parent.style.setProperty('background-color', '#ffffff', 'important');
-                                parent.style.setProperty('border-radius', '16px', 'important');
-                            }
+                function findBrandContainer(element) {
+                    var current = element;
+                    var depth = 0;
+                    while (current && depth < 5) {
+                        var image = current.querySelector && current.querySelector('img');
+                        if (image) {
+                            return current;
                         }
+
+                        current = current.parentElement;
+                        depth++;
+                    }
+
+                    return element.parentElement;
+                }
+
+                function patchLogo(container) {
+                    var branding = window.__seriousMobileBranding || {};
+                    var logoSource = branding.fallbackLogo || branding.logoUrl;
+                    if (!container || !logoSource) {
+                        return;
+                    }
+
+                    var image = container.querySelector && container.querySelector('img');
+                    if (!image || image.getAttribute('data-serious-mobile-logo') === logoSource) {
+                        return false;
+                    }
+
+                    image.setAttribute('data-serious-mobile-logo', logoSource);
+                    image.src = logoSource;
+                    return true;
+                }
+
+                function getBrandingCandidates() {
+                    var scoped = Array.prototype.slice.call(document.querySelectorAll('aside *, nav *, .v-navigation-drawer *, [class*="drawer"] *, [class*="sidebar"] *, [class*="menu"] *'));
+                    var visibleTopLeft = Array.prototype.slice.call(document.querySelectorAll('body *')).filter(function (element) {
+                        if (element.children && element.children.length > 0) {
+                            return false;
+                        }
+
+                        return isSideMenuArea(element);
+                    });
+
+                    return scoped.concat(visibleTopLeft).filter(function (element, index, source) {
+                        return source.indexOf(element) === index;
                     });
                 }
 
-                patchTenantLogo();
-                window.setTimeout(patchTenantLogo, 250);
-                window.setTimeout(patchTenantLogo, 1000);
+                function applyBranding() {
+                    var branding = window.__seriousMobileBranding || {};
+                    if (!branding.displayName) {
+                        return false;
+                    }
+
+                    var changed = false;
+                    var patchedContainer = null;
+                    var elements = getBrandingCandidates();
+
+                    elements.forEach(function (element) {
+                        var text = String(element.textContent || '').trim();
+                        var hasElementChildren = element.children && element.children.length > 0;
+                        if (hasElementChildren || !isTargetText(text) || !isSideMenuArea(element)) {
+                            return;
+                        }
+
+                        changed = patchText(element, branding.displayName) || changed;
+                        patchedContainer = patchedContainer || findBrandContainer(element);
+
+                        var sibling = element.nextElementSibling;
+                        if (sibling && !sibling.children.length && isSideMenuArea(sibling)) {
+                            changed = patchText(sibling, branding.subtitle || branding.displayName) || changed;
+                        }
+                    });
+
+                    changed = patchLogo(patchedContainer) || changed;
+                    return changed;
+                }
+
+                function startBrandingWatch() {
+                    var startedAt = Date.now();
+                    window.clearInterval(window.__seriousMobileBrandingInterval);
+
+                    applyBranding();
+                    window.__seriousMobileBrandingInterval = window.setInterval(function () {
+                        applyBranding();
+
+                        if (Date.now() - startedAt > 12000) {
+                            window.clearInterval(window.__seriousMobileBrandingInterval);
+                            window.__seriousMobileBrandingInterval = null;
+                        }
+                    }, 500);
+                }
+
+                startBrandingWatch();
+
+                if (!window.__seriousMobileBrandingObserver && window.MutationObserver) {
+                    window.__seriousMobileBrandingObserver = new MutationObserver(function () {
+                        window.clearTimeout(window.__seriousMobileBrandingTimer);
+                        window.__seriousMobileBrandingTimer = window.setTimeout(startBrandingWatch, 120);
+                    });
+
+                    window.__seriousMobileBrandingObserver.observe(document.body || document.documentElement, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true,
+                        attributes: true,
+                        attributeFilter: ['class', 'style', 'src']
+                    });
+                }
 
                 return true;
             })();
@@ -857,26 +732,8 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
         }
         catch
         {
-            // The portal may reject script evaluation while it is still rendering.
+            // The portal may reject script evaluation while Blazor is reconnecting or navigating.
         }
-    }
-
-    private static string GetConfiguredPortalLogoSource(WhitelabelConfig? config, Uri startUri)
-    {
-        if (string.IsNullOrWhiteSpace(config?.LogoUrl))
-        {
-            return string.Empty;
-        }
-
-        var logoUrl = config.LogoUrl.Trim();
-        if (Uri.TryCreate(logoUrl, UriKind.Absolute, out var absoluteUri))
-        {
-            return absoluteUri.AbsoluteUri;
-        }
-
-        return Uri.TryCreate(startUri, logoUrl, out var relativeUri)
-            ? relativeUri.AbsoluteUri
-            : string.Empty;
     }
 
 #if ANDROID
@@ -1048,45 +905,32 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
             $"{WebPortalOptions.SectionName}:StartUrl must be an absolute HTTPS URL.");
     }
 
-    private static string BuildLogoDataUri(WhitelabelConfig? config)
+    private static string BuildPortalBrandLogoDataUri(string launcherIconKey)
     {
-        if (config is null)
-        {
-            return string.Empty;
-        }
-
-        var svg = GetFallbackLogoSvg(config.LauncherIconKey);
-
-        return "data:image/svg+xml;charset=utf-8," + Uri.EscapeDataString(svg);
-    }
-
-    private static string GetFallbackLogoSvg(string launcherIconKey)
-    {
-        return launcherIconKey.Trim().ToLowerInvariant() switch
+        var svg = launcherIconKey.Trim().ToLowerInvariant() switch
         {
             "ali" => """
-                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="128" height="128" rx="28" fill="#F59E0B"/>
-                  <path d="M34 84L58 32H72L96 84H80L76 74H54L50 84H34ZM59 60H71L65 45L59 60Z" fill="#FFFFFF"/>
-                  <text x="64" y="106" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800" fill="#FFFFFF">ALI</text>
+                <svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="96" height="96" rx="20" fill="#ffffff"/>
+                  <path d="M22 57C23 39 31 26 44 17C39 33 38 48 42 64C35 64 28 61 22 57Z" fill="#2B8AAF"/>
+                  <path d="M39 64C36 45 39 29 49 14C54 31 54 49 47 67C44 66 41 65 39 64Z" fill="#F6D11A"/>
+                  <path d="M47 67C55 47 56 30 51 13C64 25 68 43 59 64C56 67 52 68 47 67Z" fill="#F58220"/>
+                  <text x="59" y="62" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" fill="#222222">ali</text>
                 </svg>
                 """,
             "cbe" => """
-                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="128" height="128" rx="28" fill="#0F766E"/>
-                  <circle cx="98" cy="30" r="14" fill="#F59E0B"/>
-                  <text x="64" y="72" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#FFFFFF">CBE</text>
-                  <text x="93" y="49" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">+</text>
+                <svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="96" height="96" rx="20" fill="#0F766E"/>
+                  <circle cx="73" cy="24" r="10" fill="#F59E0B"/>
+                  <text x="48" y="56" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" fill="#FFFFFF">CBE</text>
+                  <text x="70" y="38" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="#FFFFFF">+</text>
                 </svg>
                 """,
             "oak" => """
-                <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="128" height="128" rx="28" fill="#14532D"/>
-                  <path d="M64 18C84 18 100 33 100 53C100 78 79 95 64 106C49 95 28 78 28 53C28 33 44 18 64 18Z" fill="#22C55E"/>
-                  <path d="M64 34C76 34 86 44 86 56C86 72 73 84 64 91C55 84 42 72 42 56C42 44 52 34 64 34Z" fill="#DCFCE7"/>
-                  <path d="M59 55H69V92H59V55Z" fill="#14532D"/>
-                  <path d="M64 62L82 49L87 56L64 74V62Z" fill="#14532D"/>
-                  <path d="M64 62L46 49L41 56L64 74V62Z" fill="#14532D"/>
+                <svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="96" height="96" rx="20" fill="#ffffff"/>
+                  <text x="48" y="53" text-anchor="middle" font-family="Georgia, serif" font-size="34" font-weight="800" fill="#282D64">OAK</text>
+                  <text x="48" y="70" text-anchor="middle" font-family="Georgia, serif" font-size="10" font-weight="800" fill="#282D64">RISK</text>
                 </svg>
                 """,
             _ => """
@@ -1100,5 +944,7 @@ public partial class MainPage : ContentPage, ISystemBarsPage, INativeResumeAware
                 </svg>
                 """
         };
+
+        return "data:image/svg+xml;charset=utf-8," + Uri.EscapeDataString(svg);
     }
 }

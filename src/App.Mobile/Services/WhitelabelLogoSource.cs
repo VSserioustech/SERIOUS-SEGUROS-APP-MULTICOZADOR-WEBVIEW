@@ -7,12 +7,12 @@ public static class WhitelabelLogoSource
         Timeout = TimeSpan.FromSeconds(5)
     };
 
-    public static ImageSource FromFallbackAsset(string launcherIconKey) =>
+    public static ImageSource FromFallbackAsset(string? launcherIconKey) =>
         GetFallbackLogoAsset(launcherIconKey);
 
     public static async Task<ImageSource> CreateAsync(
         string? logoUrl,
-        string launcherIconKey,
+        string? launcherIconKey,
         CancellationToken cancellationToken = default)
     {
         var fallbackLogoAsset = GetFallbackLogoAsset(launcherIconKey);
@@ -50,13 +50,17 @@ public static class WhitelabelLogoSource
         {
             return fallbackLogoAsset;
         }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return fallbackLogoAsset;
+        }
     }
 
-    private static string GetFallbackLogoAsset(string launcherIconKey) =>
-        launcherIconKey.Trim().ToLowerInvariant() switch
+    private static string GetFallbackLogoAsset(string? launcherIconKey) =>
+        launcherIconKey?.Trim().ToLowerInvariant() switch
         {
             "ali" => "whitelabel_ali.png",
-            "cbe" => "whitelabel_cbe.png",
+            "cbe" => "whitelabel_cbe_full.png",
             "oak" => "whitelabel_oak.png",
             _ => "whitelabel_serious.png"
         };
